@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva Premium | Paula Pintos</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --accent: #06b6d4; --bg: #050505; }
+        body { background: var(--bg); color: white; font-family: 'Poppins', sans-serif; overflow-x: hidden; }
+        .font-luxury { font-family: 'Poppins', sans-serif; font-weight: 800; }
+        
+        /* Glassmorphism */
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
+        
+        /* GIF de fondo fijo */
+        #bg-gif { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; object-fit: cover; z-index: -1; filter: brightness(0.3); }
+
+        /* Stepper de reserva */
+        .step-content { display: none; }
+        .step-content.active { display: block; animation: fadeIn 0.5s ease forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .step-indicator.active-step {
+            color: var(--accent);
+        }
+
+        .service-card.selected { border-color: var(--accent); background: rgba(6, 182, 212, 0.1); }
+        
+        /* Carrito */
+        .cart-item { background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3); padding: 0.75rem; border-radius: 0.75rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .cart-item .remove-btn { background: rgba(255,0,0,0.2); border: none; color: #ff6b6b; padding: 0.25rem 0.5rem; border-radius: 0.4rem; cursor: pointer; font-size: 0.7rem; transition: 0.3s; }
+        .cart-item .remove-btn:hover { background: rgba(255,0,0,0.4); }
+
+        /* Desplegable de servicios */
+        .service-card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 1rem;
+            user-select: none;
+        }
+
+        .service-header:hover {
+            background: rgba(6, 182, 212, 0.05);
+            border-radius: 0.75rem;
+            transition: background 0.3s ease;
+        }
+
+        .service-expand-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid rgba(6,182,212,0.5);
+            background: rgba(6,182,212,0.09);
+            color: var(--accent);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+        }
+
+        .service-expand-btn:hover {
+            background: rgba(6,182,212,0.25);
+            border-color: var(--accent);
+            transform: scale(1.1);
+        }
+
+        .service-details {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: max-height 0.4s ease, opacity 0.4s ease, padding 0.4s ease;
+            border-top: 1px solid rgba(6,182,212,0.2);
+        }
+
+        .service-details.active {
+            max-height: 300px;
+            opacity: 1;
+            padding: 1rem;
+            background: rgba(6,182,212,0.05);
+        }
+
+        .service-details ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .service-details li {
+            font-size: 0.875rem;
+            color: #d1d5db;
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .service-details li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .detail-value {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .detail-value.hidden {
+            display: none;
+        }
+
+        .detail-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0 0.25rem;
+            transition: color 0.3s ease;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .detail-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .scroll-top-btn {
+            position: fixed;
+            right: 1rem;
+            bottom: 1.25rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            border: 1px solid rgba(6,182,212,0.55);
+            background: rgba(6,182,212,0.16);
+            color: #e6fbff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 70;
+            opacity: 0;
+            transform: translateY(12px);
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease, background 0.25s ease;
+        }
+
+        .scroll-top-btn:hover {
+            background: rgba(6,182,212,0.3);
+        }
+
+        .scroll-top-btn.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Contenedor de servicios con scroll */
+        #services-container {
+            max-height: 65vh;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+            padding-bottom: 1rem;
+        }
+
+        /* Scrollbar personalizado */
+        #services-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #services-container::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        #services-container::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.4);
+            border-radius: 10px;
+            transition: background 0.3s ease;
+        }
+
+        #services-container::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.7);
+        }
+
+        /* Mobile: solo 2 servicios visibles */
+        @media (max-width: 640px) {
+            #services-container {
+                max-height: 42vh;
+            }
+        }
+
+        /* Mobile Menu */
+        #mobile-menu {
+            position: fixed; top: 0; right: -100%; width: 100%; height: 100vh;
+            background: rgba(5,5,5,0.98); z-index: 150; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: 0.5s cubic-bezier(0.77,0,0.175,1);
+        }
+        #mobile-menu.active { right: 0; }
+
+        .burger-btn {
+            transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+        }
+
+        @keyframes menuPop {
+            0% { transform: scale(1); }
+            45% { transform: scale(1.14); }
+            100% { transform: scale(1); }
+        }
+
+        .burger-btn.menu-pop {
+            animation: menuPop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .burger-btn span {
+            display: block;
+            transition: transform 0.25s ease, opacity 0.2s ease;
+            transform-origin: center;
+        }
+
+        .burger-btn.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .burger-btn.is-open span:nth-child(2) { opacity: 0; }
+        .burger-btn.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .mobile-menu-close {
+            position: absolute;
+            top: 1.2rem;
+            right: 1rem;
+            width: 2.4rem;
+            height: 2.4rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.88) rotate(-60deg);
+            transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease;
+        }
+
+        #mobile-menu.active .mobile-menu-close {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1) rotate(0deg);
+        }
+
+        .mobile-menu-close:hover {
+            background: rgba(255,255,255,0.16);
+            transform: scale(1.08) rotate(90deg);
+        }
+
+        @media (max-width: 768px) {
+            .booking-main {
+                min-height: 100dvh;
+                padding-top: 6.5rem;
+                padding-bottom: 1rem;
+            }
+
+            .booking-card {
+                height: calc(100dvh - 7.5rem);
+                max-height: calc(100dvh - 7.5rem);
+                padding: 1.25rem;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+            }
+
+            .booking-form {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+
+            #step-1.step-content.active {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+            }
+
+            #step-1 #services-container {
+                flex: 1;
+                min-height: 0;
+                max-height: none;
+            }
+
+            #step-1 .step1-next-btn {
+                margin-top: 0.75rem;
+                flex-shrink: 0;
+            }
+
+            #step-2.step-content.active,
+            #step-3.step-content.active {
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                overflow-y: auto;
+                padding-right: 0.25rem;
+            }
+
+            #step-3 .step3-payment-box {
+                margin-bottom: 1rem;
+            }
+
+            #step-3 .step3-note {
+                margin-bottom: 1rem;
+            }
+
+            .burger-btn {
+                position: fixed;
+                top: 1.1rem;
+                right: 1rem;
+                z-index: 220;
+                background: rgba(5,5,5,0.45);
+                border: 1px solid rgba(255,255,255,0.25);
+                border-radius: 0.65rem;
+                padding: 0.45rem;
+                backdrop-filter: blur(8px);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <img id="bg-gif" src="TU_GIF_AQUI.gif" alt="background">
+
+    <!-- Header -->
+    <nav class="fixed top-0 w-full z-50 p-6 flex justify-between items-center glass border-b border-white/5">
+         <a href="index.html" class="absolute left-1/2 -translate-x-1/2">
+            <img src="img/logo web.png" alt="Paula Pintos" class="h-32">
+        </a>
+        <div class="flex items-center gap-6">
+            <button id="btn-admin-login" class="text-[10px] uppercase tracking-widest opacity-50 hover:opacity-100 hidden sm:block">Acceso Staff</button>
+            <div class="burger-btn md:hidden cursor-pointer flex flex-col gap-1.5" id="burger-menu">
+                <span class="w-6 h-0.5 bg-white"></span>
+                <span class="w-6 h-0.5 bg-white"></span>
+                <span class="w-6 h-0.5 bg-white"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Menú Mobile -->
+    <div id="mobile-menu">
+        <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Cerrar menú">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="flex flex-col gap-8 text-center">
+            <a href="index.html" class="mobile-link border border-white text-white px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-white/10 transition">Servicios</a>
+            <a href="agendar turno.html" class="mobile-link bg-cyan-500 text-black px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-cyan-400 transition">Reservar Ahora</a>
+            <a href="tienda.html" class="mobile-link border border-white text-white px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-white/10 transition">Tienda</a>
+            <a href="index.html" class="text-white/50 text-xs hover:text-white transition underline underline-offset-4">ir a inicio</a>
+            <a href="admin.html" class="mobile-link text-xs opacity-40 uppercase tracking-widest mt-4 italic">Acceso Personal</a>
+        </div>
+    </div>
+
+    <!-- UI RESERVA -->
+    <main class="booking-main min-h-screen pt-32 pb-20 px-4">
+        <div class="booking-card max-w-xl mx-auto glass rounded-3xl p-8 shadow-2xl">
+            <div class="glass px-6 py-2 rounded-full text-[10px] tracking-widest text-cyan-400 text-center mb-6">
+                <i class="fa-solid fa-shield-halved mr-2"></i> RESERVA SEGURA
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="flex justify-between mb-8 text-[10px] uppercase tracking-widest font-bold text-gray-500">
+                <span class="step-indicator text-cyan-500">1. Servicio</span>
+                <span class="step-indicator">2. Fecha</span>
+                <span class="step-indicator">3. Pago</span>
+            </div>
+
+            <form id="booking-form" class="booking-form">
+                <!-- PASO 1: SERVICIOS -->
+                <div class="step-content active" id="step-1">
+                    <h2 class="text-3xl font-luxury mb-2">Seleccioná tus <span class="text-cyan-500">servicios</span></h2>
+                    <p class="text-xs text-gray-500 mb-6">Podés elegir uno o más</p>
+                    <div id="services-container" class="grid gap-4 overflow-hidden">
+                        <!-- cards created by script -->
+                    </div>
+                    <button type="button" onclick="nextStep(2)" class="step1-next-btn w-full mt-8 bg-white text-black py-4 rounded-xl font-bold uppercase tracking-widest hover:bg-cyan-500 transition">Siguiente</button>
+                </div>
+
+                <!-- PASO 2: CALENDARIO Y DATOS -->
+                <div class="step-content" id="step-2">
+                    <h2 class="text-3xl font-luxury mb-6">¿Cuándo <span class="text-cyan-500">venís</span>?</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="text-[10px] uppercase text-gray-500">Hora de Atención</label>
+                            <p class="text-xs text-cyan-400 mb-2" id="horarios-info">Cargando horarios...</p>
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase text-gray-500">Fecha y Hora</label>
+                            <input type="datetime-local" id="reserva-fecha" required class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-cyan-500">
+                            <p class="text-xs text-red-400 mt-1" id="fecha-error" style="display:none;">Este horario no está disponible</p>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="text-[10px] uppercase text-gray-500">Nombre</label>
+                                <input type="text" id="reserva-nombre" placeholder="Tu nombre" required class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-cyan-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] uppercase text-gray-500">Celular</label>
+                                <input type="tel" id="reserva-tel" placeholder="11..." required class="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-cyan-500">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 mt-8">
+                        <button type="button" onclick="nextStep(1)" class="w-1/3 border border-white/10 py-4 rounded-xl opacity-50">Volver</button>
+                        <button type="button" onclick="nextStep(3)" class="w-2/3 bg-white text-black py-4 rounded-xl font-bold uppercase tracking-widest">Confirmar Datos</button>
+                    </div>
+                </div>
+
+                <!-- PASO 3: PAGO DE SEÑA -->
+                <div class="step-content" id="step-3">
+                    <h2 class="text-3xl font-luxury mb-4 text-center">Confirma tu <span class="text-cyan-500">reserva</span></h2>
+                    
+                    <!-- CARRITO VISUAL -->
+                    <div class="bg-cyan-500/10 border border-cyan-500/30 p-4 rounded-2xl mb-6">
+                        <p class="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-3">📋 Tu Carrito de Servicios</p>
+                        <div id="cart-summary" class="space-y-2 mb-4">
+                            <!-- Los servicios se cargan aquí -->
+                        </div>
+                        <div class="pt-3 border-t border-cyan-500/20 space-y-1">
+                            <p class="text-xs text-gray-300"><strong>Nombre:</strong> <span id="cart-nombre"></span></p>
+                            <p class="text-xs text-gray-300"><strong>Celular:</strong> <span id="cart-celular"></span></p>
+                            <p class="text-xs text-gray-300"><strong>Fecha:</strong> <span id="cart-fecha"></span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="step3-payment-box bg-cyan-500/10 p-6 rounded-2xl border border-cyan-500/20 mb-6">
+                        <p class="text-sm text-center text-gray-300">Para confirmar el turno, es necesario abonar una seña de:</p>
+                        <p class="text-4xl font-bold text-center mt-2 text-cyan-400">$<span id="sena-amount">0</span></p>
+                        <p class="text-xs text-center text-gray-500 mt-2">(50% del total: $<span id="total-amount">0</span>)</p>
+                        <div class="mt-5 pt-4 border-t border-cyan-500/20 text-center">
+                            <p class="text-[10px] uppercase tracking-[0.2em] text-cyan-300/80">Alias para abonar</p>
+                            <p id="payment-alias" class="mt-2 text-2xl md:text-3xl font-extrabold text-cyan-300 break-all">paula.pintos</p>
+                        </div>
+                    </div>
+                    <p class="step3-note text-[10px] text-center text-gray-500 mb-8 italic">El saldo restante se abona en el salón.</p>
+                    
+                    <button type="button" onclick="submitReserva()" class="w-full bg-[#25d366] text-white py-4 rounded-xl font-bold flex items-center justify-center gap-3 hover:scale-[1.02] transition">
+                        <i class="fa-brands fa-whatsapp"></i> Confirmar por WhatsApp
+                    </button>
+
+                    <button type="button" onclick="nextStep(2)" class="w-full mt-4 text-xs text-gray-400 hover:text-white transition">← Volver</button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <button id="scroll-top-btn" class="scroll-top-btn" type="button" aria-label="Subir al inicio">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
+    <div id="booking-success-modal" class="fixed inset-0 bg-black/75 hidden items-center justify-center z-[120] p-4">
+        <div class="glass w-full max-w-md rounded-3xl border border-cyan-500/30 p-6 md:p-8 text-center">
+            <div class="mx-auto mb-4 h-14 w-14 rounded-full bg-cyan-500/20 border border-cyan-400/40 flex items-center justify-center">
+                <i class="fa-solid fa-check text-cyan-300 text-xl"></i>
+            </div>
+            <h3 class="text-2xl font-luxury text-white">Solicitado correctamente</h3>
+            <p class="text-xs text-gray-300 mt-3">Tu reserva fue registrada. Te redirigimos al inicio.</p>
+            <button id="booking-success-home" type="button" class="mt-6 w-full bg-cyan-500 text-black py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-cyan-400 transition">
+                Ir al inicio
+            </button>
+        </div>
+    </div>
+
+   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+}
+
+const forcePageTop = () => {
+    if (!window.location.hash) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+};
+
+forcePageTop();
+window.addEventListener('pageshow', forcePageTop);
+window.addEventListener('load', forcePageTop);
+
+const supabaseClient = supabase.createClient(
+  "https://svhyzqryvjuodmpybzmq.supabase.co",
+  "sb_publishable_7-VGuO-3Rb1GIex87SQzjw_bsBy3mxX"
+);
+
+let serviciosSeleccionados = [];
+const serviciosSeleccionadosMap = new Map();
+let total = 0;
+let horaInicio = "09:00";
+let horaFin = "18:00";
+let aliasPago = "paula.pintos";
+let diasDisponibles = [0, 1, 2, 3, 4, 5, 6]; // 0=domingo, 6=sábado
+let turnosReservados = [];
+let autoAdvancedStep2 = false;
+let lastScrollY = 0;
+
+function setupScrollTopButton() {
+    const scrollBtn = document.getElementById('scroll-top-btn');
+    if (!scrollBtn) return;
+
+    scrollBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    const updateButtonState = () => {
+        const currentScrollY = window.scrollY || window.pageYOffset;
+        const isScrollingDown = currentScrollY > lastScrollY;
+        const shouldShow = currentScrollY > 180 && isScrollingDown;
+
+        scrollBtn.classList.toggle('show', shouldShow);
+
+        if (currentScrollY <= 120) {
+            scrollBtn.classList.remove('show');
+        }
+
+        lastScrollY = currentScrollY;
+    };
+
+    window.addEventListener('scroll', updateButtonState, { passive: true });
+}
+
+function updateStepIndicators(currentStep) {
+    const indicators = document.querySelectorAll('.step-indicator');
+    indicators.forEach((indicator, index) => {
+        const stepNumber = index + 1;
+        indicator.classList.remove('text-cyan-500', 'active-step');
+        if (stepNumber === currentStep) {
+            indicator.classList.add('text-cyan-500', 'active-step');
+        }
+    });
+}
+
+function isStep2Complete() {
+    const fechaHora = document.getElementById('reserva-fecha').value;
+    const nombre = document.getElementById('reserva-nombre').value.trim();
+    const tel = document.getElementById('reserva-tel').value.trim();
+    return Boolean(fechaHora && nombre && tel && validarDisponibilidad());
+}
+
+function tryAutoAdvanceStep2() {
+    const step2 = document.getElementById('step-2');
+    if (!step2.classList.contains('active')) return;
+    if (autoAdvancedStep2) return;
+    if (!isStep2Complete()) return;
+
+    autoAdvancedStep2 = true;
+    setTimeout(() => nextStep(3), 150);
+}
+
+function setupStep2AutoAdvance() {
+    const fechaInput = document.getElementById('reserva-fecha');
+    const nombreInput = document.getElementById('reserva-nombre');
+    const telInput = document.getElementById('reserva-tel');
+    [fechaInput, nombreInput, telInput].forEach(input => {
+        if (!input) return;
+        input.addEventListener('input', tryAutoAdvanceStep2);
+        input.addEventListener('change', tryAutoAdvanceStep2);
+    });
+}
+
+function parseDiasDisponibles(rawValue) {
+    if (Array.isArray(rawValue)) {
+        return rawValue
+            .map((n) => Number(n))
+            .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+    }
+
+    const text = String(rawValue || '').trim();
+    if (!text) return [1, 2, 3, 4, 5];
+
+    // 1) Intentar JSON: "[1,2,3,4,5]"
+    try {
+        const parsed = JSON.parse(text);
+        const fromJson = parseDiasDisponibles(parsed);
+        if (fromJson.length) return fromJson;
+    } catch (_) {
+        // Continúa con formatos flexibles.
+    }
+
+    // 2) Rango simple: "1-5"
+    const rangeMatch = text.match(/^(\d)\s*-\s*(\d)$/);
+    if (rangeMatch) {
+        const start = Number(rangeMatch[1]);
+        const end = Number(rangeMatch[2]);
+        if (start >= 0 && end <= 6 && start <= end) {
+            const rangeDays = [];
+            for (let d = start; d <= end; d++) rangeDays.push(d);
+            return rangeDays;
+        }
+    }
+
+    // 3) Lista con comas/espacios: "1,2,3,4,5"
+    const listDays = text
+        .split(/[^0-9]+/)
+        .map((part) => Number(part))
+        .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+
+    return listDays.length ? [...new Set(listDays)] : [1, 2, 3, 4, 5];
+}
+
+function formatDiasDisponibles(days) {
+    const labels = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    return (days || [])
+        .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
+        .map((n) => labels[n])
+        .join(', ');
+}
+
+// Cargar configuración de horarios desde admin
+async function loadConfiguracion() {
+    const { data } = await supabaseClient
+        .from('configuracion')
+        .select('*')
+        .single();
+
+    if (data) {
+        horaInicio = data.hora_inicio || "09:00";
+        horaFin = data.hora_fin || "18:00";
+        aliasPago = data.alias_pago || "paula.pintos";
+        
+        // Soporta JSON, lista con comas y rango simple (ej: 1-5).
+        diasDisponibles = parseDiasDisponibles(data.dias_disponibles);
+        const diasTexto = formatDiasDisponibles(diasDisponibles);
+        
+        document.getElementById('horarios-info').innerHTML = 
+            `De <strong>${horaInicio}</strong> a <strong>${horaFin}</strong><br>Días: <strong>${diasTexto || 'Lun, Mar, Mie, Jue, Vie'}</strong>`;
+
+        const aliasEl = document.getElementById('payment-alias');
+        if (aliasEl) aliasEl.innerText = aliasPago;
+    }
+}
+
+// Cargar turnos ya reservados
+async function loadTurnosReservados() {
+    const { data } = await supabaseClient
+        .from('turnos')
+        .select('fecha, hora, estado')
+        .neq('estado', 'cancelado');
+
+    turnosReservados = data || [];
+    
+    // Deshabilitar fechas en el input
+    const input = document.getElementById('reserva-fecha');
+    if (input) {
+        input.addEventListener('change', validarDisponibilidad);
+    }
+}
+
+// Validar si la fecha/hora está disponible
+function validarDisponibilidad() {
+    const fechaInput = document.getElementById('reserva-fecha').value;
+    const errorDiv = document.getElementById('fecha-error');
+    
+    if (!fechaInput) {
+        errorDiv.style.display = 'none';
+        return true;
+    }
+
+    const [fecha, hora] = fechaInput.split('T');
+    const date = new Date(fecha);
+    const diaSemana = date.getDay();
+
+    // Validar día disponible
+    if (!diasDisponibles.includes(diaSemana)) {
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = 'Este día no está disponible';
+        return false;
+    }
+
+    // Validar horario dentro del rango
+    const [horaI, minI] = horaInicio.split(':');
+    const [horaF, minF] = horaFin.split(':');
+    const minutoInicio = parseInt(horaI) * 60 + parseInt(minI);
+    const minutoFin = parseInt(horaF) * 60 + parseInt(minF);
+    const [horaSelec, minSelec] = hora.split(':');
+    const minutoSeleccionado = parseInt(horaSelec) * 60 + parseInt(minSelec);
+
+    if (minutoSeleccionado < minutoInicio || minutoSeleccionado > minutoFin) {
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = `El horario debe estar entre ${horaInicio} y ${horaFin}`;
+        return false;
+    }
+
+    // Validar que no esté reservado
+    const yaReservado = turnosReservados.some(t => t.fecha === fecha && t.hora === hora);
+    if (yaReservado) {
+        errorDiv.style.display = 'block';
+        errorDiv.textContent = 'Este horario ya está reservado';
+        return false;
+    }
+
+    errorDiv.style.display = 'none';
+    return true;
+}
+
+// cargar servicios desde supabase para que se puedan editar en el panel admin
+async function loadAvailableServices() {
+    const { data } = await supabaseClient
+        .from('servicios')
+        .select('*')
+        .order('id', { ascending: true });
+
+    const container = document.getElementById('services-container');
+    container.innerHTML = '';
+
+    if (!data) return;
+
+    // Si recarga la lista, reseteamos el estado para evitar inconsistencias visuales.
+    serviciosSeleccionadosMap.clear();
+    serviciosSeleccionados = [];
+    total = 0;
+
+    data.forEach((s, index) => {
+        const descripcionServicio = s.descripcion || s.detalle || s.incluye || '';
+        const serviceUniqueId = String(s.id ?? index);
+        const serviceWrapper = document.createElement('div');
+        serviceWrapper.className = 'service-card glass rounded-xl transition border border-white/5';
+        
+        const serviceHeader = document.createElement('div');
+        serviceHeader.className = 'service-header';
+        serviceHeader.innerHTML = `
+            <h4 class="font-bold">${s.servicio}</h4>
+            <div class="flex items-center gap-3">
+                <button type="button" class="service-expand-btn" id="expand-${index}">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+                <i class="fas fa-check-circle opacity-0 text-cyan-500" id="check-${index}"></i>
+            </div>
+        `;
+        
+        const serviceDetails = document.createElement('div');
+        serviceDetails.className = 'service-details';
+        serviceDetails.id = `details-${index}`;
+        serviceDetails.innerHTML = `
+            <ul>
+                <li>Duración: <span class="detail-value">${s.duracion || 'A consultar'}</span></li>
+                <li>Precio: <span class="detail-value">$${s.precio}</span></li>
+                ${descripcionServicio ? `<li>Descripción: <span class="detail-value">${descripcionServicio}</span></li>` : ''}
+            </ul>
+        `;
+        
+        // Crear checkbox oculto para manejar selección
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.style.display = 'none';
+        checkbox.id = `service-${index}`;
+        checkbox.value = serviceUniqueId;
+        checkbox.dataset.precio = s.precio;
+        
+        serviceWrapper.appendChild(checkbox);
+        serviceWrapper.appendChild(serviceHeader);
+        serviceWrapper.appendChild(serviceDetails);
+        
+        // Event listener para expandir/contraer (solo en el botón)
+        const expandBtn = serviceHeader.querySelector('.service-expand-btn');
+        expandBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            serviceDetails.classList.toggle('active');
+            expandBtn.style.transform = serviceDetails.classList.contains('active') ? 'rotate(180deg)' : 'rotate(0deg)';
+        });
+        
+        // Event listener para seleccionar/deseleccionar (en toda la tarjeta, excepto flecha)
+        serviceWrapper.addEventListener('click', (e) => {
+            if (e.target.closest('.service-expand-btn')) return;
+
+            checkbox.checked = !checkbox.checked;
+            const icon = document.getElementById(`check-${index}`);
+            const isSelected = checkbox.checked;
+            
+            serviceWrapper.classList.toggle('selected', isSelected);
+            if (icon) icon.style.opacity = isSelected ? '1' : '0';
+
+            if (isSelected) {
+                serviciosSeleccionadosMap.set(serviceUniqueId, {
+                    id: serviceUniqueId,
+                    nombre: s.servicio,
+                    precio: Number(s.precio) || 0
+                });
+            } else {
+                serviciosSeleccionadosMap.delete(serviceUniqueId);
+            }
+
+            serviciosSeleccionados = Array.from(serviciosSeleccionadosMap.values());
+            total = serviciosSeleccionados.reduce((acc, srv) => acc + (Number(srv.precio) || 0), 0);
+        });
+        
+        container.appendChild(serviceWrapper);
+    });
+}
+
+// inicializar al cargar la página
+window.addEventListener('DOMContentLoaded', () => {
+    loadAvailableServices();
+    loadConfiguracion();
+    loadTurnosReservados();
+    setupStep2AutoAdvance();
+    setupScrollTopButton();
+    updateStepIndicators(1);
+});
+
+function nextStep(step){
+    if (step === 2) {
+        // Validar que se haya seleccionado al menos un servicio
+        if (serviciosSeleccionados.length === 0) {
+            alert("Seleccioná al menos un servicio");
+            return;
+        }
+
+        autoAdvancedStep2 = false;
+    }
+
+    if (step === 3) {
+        const nombre = document.getElementById("reserva-nombre").value.trim();
+        const tel = document.getElementById("reserva-tel").value.trim();
+        const fechaHora = document.getElementById("reserva-fecha").value;
+
+        if (!nombre || !tel || !fechaHora) {
+            alert("Completá fecha, hora, nombre y celular");
+            return;
+        }
+
+        // Validar disponibilidad de fecha/hora
+        if (!validarDisponibilidad()) {
+            alert("Seleccioná una fecha y hora disponibles");
+            return;
+        }
+    }
+
+    document.querySelectorAll(".step-content").forEach(s=>{
+        s.classList.remove("active");
+    });
+
+    document.getElementById("step-"+step).classList.add("active");
+    updateStepIndicators(step);
+
+    if(step === 3){
+        document.getElementById("cart-summary").innerHTML =
+            serviciosSeleccionados.map(s=>`<p class="text-xs">${s.nombre}</p>`).join("");
+
+        document.getElementById("cart-nombre").innerText =
+            document.getElementById("reserva-nombre").value;
+
+        document.getElementById("cart-celular").innerText =
+            document.getElementById("reserva-tel").value;
+
+        document.getElementById("cart-fecha").innerText =
+            document.getElementById("reserva-fecha").value;
+
+        // Actualizar seña (50% del total)
+        const sena = (total * 0.5).toFixed(2);
+        document.getElementById("sena-amount").innerText = sena;
+        document.getElementById("total-amount").innerText = total.toFixed(2);
+        const aliasEl = document.getElementById('payment-alias');
+        if (aliasEl) aliasEl.innerText = aliasPago;
+    }
+}
+
+function showBookingSuccessModal() {
+    const modal = document.getElementById('booking-success-modal');
+    if (!modal) {
+        window.location.href = 'index.html';
+        return;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    setTimeout(() => {
+        window.location.href = 'index.html';
+    }, 2200);
+}
+
+
+async function submitReserva() {
+
+    const nombre = document.getElementById("reserva-nombre").value;
+    const tel = document.getElementById("reserva-tel").value;
+    const fechaHora = document.getElementById("reserva-fecha").value;
+
+    if (!nombre || !tel || !fechaHora) {
+        alert("Completá todos los datos");
+        return;
+    }
+
+    if (serviciosSeleccionados.length === 0) {
+        alert("Seleccioná al menos un servicio");
+        return;
+    }
+
+    // Validar disponibilidad una última vez
+    if (!validarDisponibilidad()) {
+        alert("Este horario ya no está disponible");
+        return;
+    }
+
+    const fecha = fechaHora.split("T")[0];
+    const hora = fechaHora.split("T")[1];
+
+    // 1️⃣ Guardar en Supabase
+    const { error } = await supabaseClient.from("turnos").insert([{
+        nombre,
+        tel,
+        fecha,
+        hora,
+        servicio: serviciosSeleccionados.map(s => s.nombre).join(", "),
+        estado: "pendiente",
+        total: total
+    }]);
+
+    if (error) {
+        console.error(error);
+        const msg = String(error.message || error.details || '').toLowerCase();
+
+        if (msg.includes('permission denied') || msg.includes('row-level') || msg.includes('rls')) {
+            alert(
+                "No se pudo guardar el turno por permisos en Supabase.\\n\\n" +
+                "Ejecutá en SQL Editor:\\n" +
+                "GRANT INSERT ON TABLE public.turnos TO anon;\\n" +
+                "GRANT USAGE, SELECT ON SEQUENCE public.turnos_id_seq TO anon;\\n" +
+                "ALTER TABLE public.turnos ENABLE ROW LEVEL SECURITY;\\n" +
+                "CREATE POLICY turnos_insert_public ON public.turnos FOR INSERT TO anon WITH CHECK (true);"
+            );
+            return;
+        }
+
+        alert("Error guardando turno: " + (error.message || 'desconocido'));
+        return;
+    }
+
+    // 2️⃣ Calcular total y seña (50%)
+    const totalFinal = total;
+    const sena = (totalFinal * 0.5).toFixed(2);
+
+    // 3️⃣ Armar mensaje WhatsApp
+    const mensaje = `
+Hola Paula ✨ quiero confirmar mi turno:
+
+👩 Nombre: ${nombre}
+📱 Celular: ${tel}
+📅 Fecha: ${fecha}
+⏰ Hora: ${hora}
+💇 Servicios: ${serviciosSeleccionados.map(s => s.nombre).join(", ")}
+
+💰 Total: $${totalFinal.toFixed(2)}
+💳 Seña (50%): $${sena}
+
+Te envío el comprobante por este medio 😊
+`;
+
+    const telefono = "5491156925501";
+    const url = `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`;
+
+    // 4️⃣ Abrir WhatsApp
+    window.open(url, "_blank");
+    
+    // Recargar turnos disponibles
+    loadTurnosReservados();
+    showBookingSuccessModal();
+}
+
+// Menú Hamburguesa
+const burgerBtn = document.getElementById('burger-menu');
+const mobileMenu = document.getElementById('mobile-menu');
+const closeMobileMenuBtn = document.getElementById('mobile-menu-close');
+const mobileMenuLinks = mobileMenu ? mobileMenu.querySelectorAll('a') : [];
+
+const setMenuOpen = (isOpen) => {
+    if (!mobileMenu) return;
+    mobileMenu.classList.toggle('active', isOpen);
+    burgerBtn?.classList.toggle('is-open', isOpen);
+    if (isOpen && burgerBtn) {
+        burgerBtn.classList.remove('menu-pop');
+        void burgerBtn.offsetWidth;
+        burgerBtn.classList.add('menu-pop');
+    }
+    document.body.style.overflow = isOpen ? 'hidden' : 'auto';
+};
+
+burgerBtn?.addEventListener('click', () => {
+    setMenuOpen(!mobileMenu.classList.contains('active'));
+});
+
+closeMobileMenuBtn?.addEventListener('click', () => setMenuOpen(false));
+mobileMenuLinks.forEach((link) => {
+    link.addEventListener('click', () => setMenuOpen(false));
+});
+
+mobileMenu?.addEventListener('click', (event) => {
+    if (event.target === mobileMenu) setMenuOpen(false);
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && mobileMenu?.classList.contains('active')) {
+        setMenuOpen(false);
+    }
+});
+
+const bookingSuccessHomeBtn = document.getElementById('booking-success-home');
+bookingSuccessHomeBtn?.addEventListener('click', () => {
+    window.location.href = 'index.html';
+});
+</script>
+</body>
+</html>

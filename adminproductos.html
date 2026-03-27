@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Admin Productos | Paula Pintos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+body { background:#050505; color:white; font-family:'Inter', sans-serif; }
+.glass { background:rgba(255,255,255,0.03); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); }
+.font-luxury { font-family:'Playfair Display', serif; }
+</style>
+</head>
+
+<body class="p-6">
+
+<!-- simple password protection -->
+<script>
+    const ADMIN_PASSWORD = "admin123"; // puedes cambiarla
+    const entrada = prompt("Ingrese la contraseña de administrador:");
+    if (entrada !== ADMIN_PASSWORD) {
+        alert("Contraseña incorrecta");
+        window.location.href = "login.html"; // redirige fuera si falla
+    }
+</script>
+
+
+<div class="max-w-6xl mx-auto">
+
+<h1 class="text-4xl font-luxury mb-10">
+Gestión de <span class="text-cyan-500">Productos</span>
+</h1>
+
+<!-- FORMULARIO -->
+<div class="glass p-6 rounded-2xl mb-10">
+<div class="grid md:grid-cols-6 gap-4">
+
+<input id="prod-nombre" type="text" placeholder="Nombre"
+class="bg-white/5 p-3 rounded-xl">
+
+<input id="prod-precio" type="number" placeholder="Precio"
+class="bg-white/5 p-3 rounded-xl">
+
+<input id="prod-descuento" type="number" placeholder="Descuento %"
+class="bg-white/5 p-3 rounded-xl">
+
+<input id="prod-stock" type="number" placeholder="Stock"
+class="bg-white/5 p-3 rounded-xl">
+
+<input id="prod-imagen" type="file" accept="image/jpeg"
+class="bg-white/5 p-3 rounded-xl">
+
+<label class="flex items-center gap-2 text-sm">
+<input type="checkbox" id="prod-activo" checked>
+Activo
+</label>
+
+<button onclick="guardarProducto()"
+class="col-span-6 bg-cyan-500 hover:bg-cyan-600 text-black font-bold py-3 rounded-xl">
+Guardar Producto
+</button>
+
+</div>
+</div>
+
+<!-- LISTA -->
+<div id="lista-productos" class="grid md:grid-cols-3 gap-6"></div>
+
+</div>
+
+<script>
+const supabaseClient = supabase.createClient(
+"https://svhyzqryvjuodmpybzmq.supabase.co",
+  "sb_publishable_7-VGuO-3Rb1GIex87SQzjw_bsBy3mxX"
+);
+
+let productoEditando = null;
+
+async function guardarProducto() {
+const nombre = document.getElementById('prod-nombre').value;
+const precio = parseFloat(document.getElementById('prod-precio').value);
+const descuento = parseFloat(document.getElementById('prod-descuento').value) || 0;
+const stock = parseInt(document.getElementById('prod-stock').value);
+const activo = document.getElementById('prod-activo').checked;
+const file = document.getElementById('prod-imagen').files[0];
+
+if (!nombre || !precio || stock < 0) {
+alert("Completar datos correctamente");
+return;
+}
+
+let imagenUrl = null;
+
+if (file) {
+if (file.type !== "image/jpeg") {
+alert("Solo JPG");
+return;
+}
+
+const nombreArchivo = `producto-${Date.now()}.jpg`;
+
+const { error } = await supabaseClient.storage
+.from('productos')
+.upload(nombreArchivo, file);
+
+if (error) {
+alert("Error subiendo imagen");
+return;
+}
+
+const { data } = supabaseClient.storage
+.from('productos')
+.getPublicUrl(nombreArchivo);
+
+imagenUrl = data.publicUrl;
+}
+
+if (productoEditando) {
+
+await supabaseClient.from('productos')
+.update({
+nombre,
+precio,
+descuento,
+stock,
+activo,
+...(imagenUrl && { imagen: imagenUrl })
+})
+.eq('id', productoEditando);
+
+} else {
+
+await supabaseClient.from('productos')
+.insert([{
+nombre,
+precio,
+descuento,
+stock,
+activo,
+imagen: imagenUrl
+}]);
+
+}
+
+productoEditando = null;
+limpiarFormularioProducto();
+cargarProductos();
+}
+
+function limpiarFormularioProducto() {
+document.getElementById('prod-nombre').value = "";
+document.getElementById('prod-precio').value = "";
+document.getElementById('prod-descuento').value = "";
+document.getElementById('prod-stock').value = "";
+document.getElementById('prod-imagen').value = "";
+document.getElementById('prod-activo').checked = true;
+}
+
+async function cargarProductos() {
+
+const { data } = await supabaseClient
+.from('productos')
+.select('*')
+.order('created_at', { ascending: false });
+
+const cont = document.getElementById('lista-productos');
+cont.innerHTML = "";
+
+if (!data) return;
+
+data.forEach(p => {
+
+const precioFinal = p.descuento > 0
+? p.precio - (p.precio * p.descuento / 100)
+: p.precio;
+
+cont.innerHTML += `
+<div class="glass p-6 rounded-2xl ${!p.activo ? 'opacity-40' : ''}">
+<img src="${p.imagen || ''}" class="w-full h-40 object-cover rounded-xl mb-4">
+<h3 class="font-bold mb-2">${p.nombre}</h3>
+
+${p.descuento > 0
+? `<p class="line-through text-gray-500">$${p.precio}</p>
+<p class="text-green-400 font-bold">$${precioFinal}</p>`
+: `<p class="text-cyan-400 font-bold">$${p.precio}</p>`
+}
+
+<p class="text-sm text-gray-400 mb-2">
+Stock: ${p.stock}
+</p>
+
+<p class="text-xs mb-4">
+${p.activo ? '🟢 Activo' : '🔴 Inactivo'}
+</p>
+
+<div class="flex gap-2">
+<button onclick="editarProducto(${p.id}, '${p.nombre.replace(/'/g,"\\'")}', ${p.precio}, ${p.descuento || 0}, ${p.stock}, ${p.activo})"
+class="flex-1 bg-cyan-500 text-black px-3 py-2 rounded-xl text-xs font-bold">
+Editar
+</button>
+
+<button onclick="eliminarProducto(${p.id})"
+class="flex-1 bg-red-500 text-white px-3 py-2 rounded-xl text-xs font-bold">
+Eliminar
+</button>
+</div>
+</div>
+`;
+});
+}
+
+function editarProducto(id, nombre, precio, descuento, stock, activo) {
+productoEditando = id;
+document.getElementById('prod-nombre').value = nombre;
+document.getElementById('prod-precio').value = precio;
+document.getElementById('prod-descuento').value = descuento;
+document.getElementById('prod-stock').value = stock;
+document.getElementById('prod-activo').checked = activo;
+}
+
+async function guardarProducto() {
+
+    console.log("Intentando guardar producto...");
+
+    const nombre = document.getElementById('prod-nombre').value;
+    const precio = parseFloat(document.getElementById('prod-precio').value);
+    const stock = parseInt(document.getElementById('prod-stock').value);
+
+    const { data, error } = await supabaseClient
+        .from('productos')
+        .insert([{ nombre, precio, stock }]);
+
+    console.log("DATA:", data);
+    console.log("ERROR:", error);
+
+    if (error) {
+        alert("Error: " + error.message);
+    } else {
+        alert("Producto guardado");
+    }
+}
+</script>
+
+</body>
+</html>

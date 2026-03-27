@@ -1,0 +1,1886 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel | Paula Pintos</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="style.css">
+
+<style>
+body {
+  background: #050505;
+  color: #ffffff;
+  font-family: 'Poppins', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.glass { background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1);}
+.active-tab { background:#06b6d4; color:black;}
+</style>
+
+<script>
+const supabaseClient = supabase.createClient(
+  "https://svhyzqryvjuodmpybzmq.supabase.co",
+  "sb_publishable_7-VGuO-3Rb1GIex87SQzjw_bsBy3mxX"
+);
+
+function showSection(section, el) {
+  document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active-tab"));
+  if (el) el.classList.add("active-tab");
+
+  if(section === "turnos") loadTurnos();
+  if(section === "servicios") loadServicios();
+  if(section === "config") loadConfig();
+  if(section === "productos") loadProductos();
+}
+
+function showAdminNotice(message, type = "success") {
+  const notice = document.getElementById("admin-notice");
+  if (!notice) return;
+
+  const isError = type === "error";
+  notice.className = `mb-4 px-4 py-2 rounded text-xs md:text-sm border ${isError ? 'bg-red-500/15 border-red-500/40 text-red-300' : 'bg-green-500/15 border-green-500/40 text-green-300'}`;
+  notice.textContent = message;
+  notice.classList.remove("hidden");
+}
+
+function getServiceDescription(service) {
+  return service.descripcion || service.detalle || service.incluye || "";
+}
+
+async function upsertServicioWithDescription(id, baseData, descriptionText) {
+  const descriptionCandidates = ["descripcion", "detalle", "incluye"];
+  let lastError = null;
+
+  for (const field of descriptionCandidates) {
+    const payload = { ...baseData, [field]: descriptionText };
+    const query = id
+      ? supabaseClient.from("servicios").update(payload).eq("id", id)
+      : supabaseClient.from("servicios").insert([payload]);
+
+    const { error } = await query;
+    if (!error) return { ok: true, descriptionSaved: true };
+
+    const msg = String(error.message || "").toLowerCase();
+    const mentionsField = msg.includes(field);
+    const unknownColumn = msg.includes("column") || msg.includes("schema cache") || msg.includes("does not exist");
+    if (!(mentionsField || unknownColumn)) {
+      return { ok: false, error };
+    }
+
+    lastError = error;
+  }
+
+  const fallbackQuery = id
+    ? supabaseClient.from("servicios").update(baseData).eq("id", id)
+    : supabaseClient.from("servicios").insert([baseData]);
+
+  const { error: fallbackError } = await fallbackQuery;
+  if (fallbackError) return { ok: false, error: fallbackError || lastError };
+
+  return { ok: true, descriptionSaved: false };
+}
+
+// 📅 TURNOS
+const WA_NUMERO = "5491156925501";
+
+function abrirWA(tel, mensaje) {
+  const numero = tel ? tel.replace(/\D/g,'') : WA_NUMERO;
+  window.open(`https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}`, '_blank');
+}
+
+async function getAliasPago() {
+  const { data } = await supabaseClient.from('configuracion').select('alias_pago, porcentaje_sena').single();
+  return data || { alias_pago: 'paula.pintos', porcentaje_sena: 50 };
+}
+
+async function accionPendiente(id) {
+  const { data: t } = await supabaseClient.from('turnos').select('*').eq('id', id).single();
+  const cfg = await getAliasPago();
+  const sena = t.total ? ((t.total * (cfg.porcentaje_sena || 50)) / 100).toFixed(2) : '?';
+  const msg =
+`Hola ${t.nombre} ✨ Gracias por solicitar tu turno en Paula Pintos!
+
+📋 Resumen de tu reserva:
+📅 Fecha: ${t.fecha}
+⏰ Hora: ${t.hora}
+💇 Servicios: ${t.servicio}
+💰 Total estimado: $${t.total || '?'}
+
+💳 Para confirmar tu turno, abonás una seña de $${sena}.
+
+Datos de pago:
+📲 Alias: ${cfg.alias_pago}
+
+Una vez realizado el pago, mandanos el comprobante por este mismo chat. ¡Te esperamos! 🫶`;
+  abrirWA(t.tel, msg);
+}
+
+async function accionConfirmar(id) {
+  await supabaseClient.from('turnos').update({ estado: 'confirmado' }).eq('id', id);
+  const { data: t } = await supabaseClient.from('turnos').select('*').eq('id', id).single();
+  const msg =
+`Hola ${t.nombre} 💚 Confirmamos que tu pago ingresó correctamente!
+
+✅ Tu turno está confirmado:
+📅 Día: ${t.fecha}
+⏰ Hora: ${t.hora}
+💇 Servicios: ${t.servicio}
+
+¡Te esperamos en el salón! 💇‍♀️✨`;
+  abrirWA(t.tel, msg);
+  loadTurnos();
+}
+
+async function accionCancelar(id) {
+  if (!confirm('¿Cancelar este turno?')) return;
+  await supabaseClient.from('turnos').update({ estado: 'cancelado' }).eq('id', id);
+  const { data: t } = await supabaseClient.from('turnos').select('*').eq('id', id).single();
+  const msg =
+`Hola ${t.nombre}, te informamos que tu turno del ${t.fecha} a las ${t.hora} ha sido cancelado.
+
+Cuando quieras podés volver a agendar 😊`;
+  abrirWA(t.tel, msg);
+  loadTurnos();
+}
+
+async function accionRecordatorio(id) {
+  const { data: t } = await supabaseClient.from('turnos').select('*').eq('id', id).single();
+  const msg =
+`Hola ${t.nombre}! 👋 Te recordamos que mañana tenés turno en Paula Pintos:
+
+📅 Fecha: ${t.fecha}
+⏰ Hora: ${t.hora}
+💇 Servicios: ${t.servicio}
+
+Te esperamos! Ante cualquier cambio avisanos con anticipación 🙏`;
+  abrirWA(t.tel, msg);
+}
+
+async function eliminarTurno(id) {
+  if (!confirm('¿Eliminar este turno permanentemente?')) return;
+  await supabaseClient.from('turnos').delete().eq('id', id);
+  loadTurnos();
+}
+
+const ESTADO_BADGE = {
+  pendiente:  'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+  confirmado: 'bg-green-500/20  text-green-300  border-green-500/30',
+  cancelado:  'bg-red-500/20    text-red-300    border-red-500/30',
+};
+
+let turnosCache = [];
+const turnosViewState = {
+  query: '',
+  status: 'todos',
+  sort: 'fecha_desc'
+};
+
+function getTurnoSearchText(turno) {
+  return `${turno?.nombre || ''} ${turno?.tel || ''} ${turno?.servicio || ''}`.toLowerCase();
+}
+
+function getFilteredTurnos() {
+  const normalizedQuery = String(turnosViewState.query || '').trim().toLowerCase();
+  const normalizedStatus = String(turnosViewState.status || 'todos').toLowerCase();
+
+  const parseTurnoDateTime = (turno) => {
+    const fecha = String(turno?.fecha || '');
+    const horaRaw = String(turno?.hora || '00:00');
+    const hora = horaRaw.length >= 5 ? horaRaw.slice(0, 5) : '00:00';
+    const isoLike = `${fecha}T${hora}`;
+    const ts = Date.parse(isoLike);
+    return Number.isFinite(ts) ? ts : 0;
+  };
+
+  const filtered = (turnosCache || []).filter((turno) => {
+    const matchesStatus = normalizedStatus === 'todos' || String(turno?.estado || '').toLowerCase() === normalizedStatus;
+    if (!matchesStatus) return false;
+
+    if (!normalizedQuery) return true;
+    return getTurnoSearchText(turno).includes(normalizedQuery);
+  });
+
+  const sortMode = String(turnosViewState.sort || 'fecha_desc');
+  const sorted = [...filtered].sort((a, b) => {
+    const tA = parseTurnoDateTime(a);
+    const tB = parseTurnoDateTime(b);
+    if (sortMode === 'fecha_asc') return tA - tB;
+    return tB - tA;
+  });
+
+  return sorted;
+}
+
+function bindTurnosControls() {
+  const searchInput = document.getElementById('turnos-search');
+  const statusSelect = document.getElementById('turnos-status');
+  const sortSelect = document.getElementById('turnos-sort');
+
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      turnosViewState.query = e.target.value || '';
+      renderTurnos();
+    });
+  }
+
+  if (statusSelect) {
+    statusSelect.addEventListener('change', (e) => {
+      turnosViewState.status = e.target.value || 'todos';
+      renderTurnos();
+    });
+  }
+
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      turnosViewState.sort = e.target.value || 'fecha_desc';
+      renderTurnos();
+    });
+  }
+}
+
+function renderTurnos() {
+  const filteredTurnos = getFilteredTurnos();
+  const totalTurnos = (turnosCache || []).length;
+
+  let html = `
+    <div class="glass p-4 md:p-6 rounded-2xl">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+        <h2 class="text-lg md:text-xl">Lista de Turnos</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] md:text-xs px-2.5 py-1 rounded-full border border-cyan-500/30 text-cyan-300 bg-cyan-500/10">${filteredTurnos.length} / ${totalTurnos}</span>
+          <button onclick="loadTurnos()" class="text-[11px] md:text-xs px-3 py-1.5 rounded-lg border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 transition">Actualizar</button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-3 mb-5 p-3 rounded-xl border border-white/10 bg-white/5">
+        <input id="turnos-search" value="${turnosViewState.query}" placeholder="Buscar por nombre, tel o servicio" class="md:col-span-2 p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+        <select id="turnos-status" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+          <option value="todos" ${turnosViewState.status === 'todos' ? 'selected' : ''}>Todos los estados</option>
+          <option value="pendiente" ${turnosViewState.status === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+          <option value="confirmado" ${turnosViewState.status === 'confirmado' ? 'selected' : ''}>Confirmado</option>
+          <option value="cancelado" ${turnosViewState.status === 'cancelado' ? 'selected' : ''}>Cancelado</option>
+        </select>
+        <select id="turnos-sort" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+          <option value="fecha_desc" ${turnosViewState.sort === 'fecha_desc' ? 'selected' : ''}>Fecha: más recientes</option>
+          <option value="fecha_asc" ${turnosViewState.sort === 'fecha_asc' ? 'selected' : ''}>Fecha: más antiguos</option>
+        </select>
+      </div>
+  `;
+
+  if (totalTurnos === 0) {
+    html += `
+      <div class="rounded-xl border border-white/10 bg-white/5 p-6 text-center">
+        <p class="text-sm text-gray-300">Todavía no hay turnos cargados.</p>
+        <p class="text-xs text-gray-500 mt-1">Cuando lleguen reservas desde la web, aparecerán acá.</p>
+      </div>
+    `;
+    html += `</div>`;
+    document.getElementById('content').innerHTML = html;
+    bindTurnosControls();
+    return;
+  }
+
+  if (filteredTurnos.length === 0) {
+    html += `
+      <div class="rounded-xl border border-white/10 bg-white/5 p-6 text-center">
+        <p class="text-sm text-gray-300">No encontramos turnos con ese filtro.</p>
+        <p class="text-xs text-gray-500 mt-1">Probá con otro nombre o cambiá el estado seleccionado.</p>
+      </div>
+    `;
+    html += `</div>`;
+    document.getElementById('content').innerHTML = html;
+    bindTurnosControls();
+    return;
+  }
+
+  filteredTurnos.forEach((t) => {
+    const badge = ESTADO_BADGE[t.estado] || ESTADO_BADGE.pendiente;
+    html += `
+      <div class="border-b border-white/10 py-4 flex flex-col gap-3">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <p class="font-bold text-sm">${t.nombre}</p>
+            <p class="text-xs opacity-60">${t.fecha} &nbsp;·&nbsp; ${t.hora}</p>
+            <p class="text-xs text-cyan-400 mt-0.5">${t.servicio}</p>
+            ${t.total ? `<p class="text-xs text-gray-400">Total: $${t.total}</p>` : ''}
+          </div>
+          <span class="text-[10px] uppercase tracking-widest border px-2 py-1 rounded-full whitespace-nowrap ${badge}">${t.estado}</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <button onclick="accionPendiente(${t.id})"
+            class="flex items-center justify-center gap-1 bg-yellow-500/15 hover:bg-yellow-500/30 border border-yellow-500/30 text-yellow-300 text-[11px] py-1.5 px-2 rounded-lg transition">
+            💬 Pendiente
+          </button>
+          <button onclick="accionConfirmar(${t.id})"
+            class="flex items-center justify-center gap-1 bg-green-500/15 hover:bg-green-500/30 border border-green-500/30 text-green-300 text-[11px] py-1.5 px-2 rounded-lg transition">
+            ✅ Confirmar
+          </button>
+          <button onclick="accionRecordatorio(${t.id})"
+            class="flex items-center justify-center gap-1 bg-cyan-500/15 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-300 text-[11px] py-1.5 px-2 rounded-lg transition">
+            🔔 Recordatorio
+          </button>
+          <button onclick="accionCancelar(${t.id})"
+            class="flex items-center justify-center gap-1 bg-orange-500/15 hover:bg-orange-500/30 border border-orange-500/30 text-orange-300 text-[11px] py-1.5 px-2 rounded-lg transition">
+            ❌ Cancelar
+          </button>
+        </div>
+        <div class="flex justify-end">
+          <button onclick="eliminarTurno(${t.id})"
+            class="text-[11px] text-red-400 hover:text-red-300 transition">
+            🗑️ Eliminar turno
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  document.getElementById('content').innerHTML = html;
+  bindTurnosControls();
+}
+
+async function loadTurnos() {
+  try {
+    let data = null;
+    let error = null;
+
+    // Intento principal: consulta con orden en DB.
+    const primary = await supabaseClient.from('turnos').select('*').order('fecha', { ascending: false });
+    data = primary.data;
+    error = primary.error;
+
+    // Fallback: si falla el ORDER BY (tipo/columna), traer sin orden y ordenar en cliente.
+    if (error) {
+      const fallback = await supabaseClient.from('turnos').select('*');
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) throw error;
+    turnosCache = data || [];
+    renderTurnos();
+  } catch (e) {
+    const msg = String(e?.message || e || 'Error desconocido');
+    const lowerMsg = msg.toLowerCase();
+    const isPermissionIssue = lowerMsg.includes('permission denied') || lowerMsg.includes('rls') || lowerMsg.includes('row-level');
+
+    const help = isPermissionIssue
+      ? 'Falta permiso SELECT en tabla turnos. Ejecutá en Supabase SQL Editor: GRANT SELECT ON turnos TO anon; y una policy SELECT para anon.'
+      : 'Revisá conexión y políticas de Supabase para tabla turnos.';
+
+    document.getElementById('content').innerHTML = `
+      <div class="glass p-4 md:p-6 rounded-2xl">
+        <h2 class="text-lg md:text-xl mb-4">Lista de Turnos</h2>
+        <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+          <p class="text-sm text-red-300">No se pudieron cargar los turnos.</p>
+          <p class="text-xs text-red-200/80 mt-1 break-words">${msg}</p>
+          <p class="text-xs text-red-200/70 mt-2 break-words">${help}</p>
+          <button onclick="loadTurnos()" class="mt-3 px-3 py-1.5 text-xs rounded-lg border border-red-400/40 text-red-200 hover:bg-red-500/20 transition">Reintentar</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ✂️ SERVICIOS
+async function loadServicios(noticeMessage = "", noticeType = "success") {
+  const { data } = await supabaseClient.from("servicios").select("*");
+
+  let html = `
+  <div class="glass p-4 md:p-6 rounded-2xl">
+    <div class="flex items-center justify-between gap-3 mb-4 md:mb-6">
+      <h2 class="text-lg md:text-xl">Servicios</h2>
+      <span class="text-[11px] md:text-xs px-2.5 py-1 rounded-full border border-cyan-500/30 text-cyan-300 bg-cyan-500/10">${(data || []).length} items</span>
+    </div>
+    <div id="admin-notice" class="hidden"></div>
+    <div class="mb-6 rounded-xl border border-white/10 bg-white/5 p-3 md:p-4 flex flex-col gap-2 md:gap-3">
+      <input id="nuevoNombre" placeholder="Nombre" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-3">
+        <input id="nuevoPrecio" type="number" placeholder="Precio" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+        <input id="nuevoDuracion" placeholder="Duración (ej. 1h, 3-4hs)" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+      </div>
+      <textarea id="nuevaDescripcion" placeholder="Descripción (ej. asesoramiento, corte, peinado)" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm min-h-24 focus:outline-none focus:border-cyan-400/70"></textarea>
+      <button onclick="agregarServicio()" class="bg-cyan-500 text-black px-4 rounded-lg text-xs md:text-sm py-2.5 font-semibold hover:bg-cyan-400 transition">Agregar Servicio</button>
+    </div>
+  `;
+
+  data.forEach(s=>{
+    html+=`
+      <div class="flex flex-col rounded-xl border border-white/10 bg-white/[0.03] p-3 md:p-4 mb-3 gap-2 md:gap-4">
+        <div class="flex-1 w-full">
+          <input id="edit-nombre-${s.id}" value="${s.servicio}" class="p-2 bg-black/70 border border-white/10 rounded-lg text-xs w-full mb-2 focus:outline-none focus:border-cyan-400/70" placeholder="Servicio">
+          <div class="flex gap-2 mb-2">
+            <input id="edit-precio-${s.id}" value="${s.precio}" type="number" class="p-2 bg-black/70 border border-white/10 rounded-lg text-xs flex-1 focus:outline-none focus:border-cyan-400/70" placeholder="Precio">
+            <input id="edit-duracion-${s.id}" value="${s.duracion || ''}" class="p-2 bg-black/70 border border-white/10 rounded-lg text-xs flex-1 focus:outline-none focus:border-cyan-400/70" placeholder="Duración">
+          </div>
+          <textarea id="edit-descripcion-${s.id}" class="p-2 bg-black/70 border border-white/10 rounded-lg text-xs w-full min-h-24 focus:outline-none focus:border-cyan-400/70" placeholder="Descripción">${getServiceDescription(s)}</textarea>
+        </div>
+        <div class="flex gap-2 w-full">
+          <button onclick="guardarServicio(${s.id})" class="text-green-300 text-xs md:text-sm flex-1 bg-green-500/20 border border-green-500/30 px-2.5 py-2 rounded-lg hover:bg-green-500/35 transition">Guardar</button>
+          <button onclick="eliminarServicio(${s.id})" class="text-red-300 text-xs md:text-sm flex-1 bg-red-500/20 border border-red-500/30 px-2.5 py-2 rounded-lg hover:bg-red-500/35 transition">Eliminar</button>
+        </div>
+      </div>
+    `;
+  });
+
+  html+=`</div>`;
+  document.getElementById("content").innerHTML = html;
+
+  if (noticeMessage) {
+    showAdminNotice(noticeMessage, noticeType);
+  }
+}
+
+async function agregarServicio() {
+  const servicio = document.getElementById("nuevoNombre").value.trim();
+  const precio = Number(document.getElementById("nuevoPrecio").value);
+  const duracion = document.getElementById("nuevoDuracion").value.trim();
+  const descripcion = document.getElementById("nuevaDescripcion").value.trim();
+
+  if (!servicio) {
+    showAdminNotice("Ingresá el nombre del servicio", "error");
+    return;
+  }
+
+  if (!Number.isFinite(precio) || precio < 0) {
+    showAdminNotice("Ingresá un precio válido", "error");
+    return;
+  }
+
+  const result = await upsertServicioWithDescription(null, { servicio, precio, duracion }, descripcion);
+  if (!result.ok) {
+    showAdminNotice(`No se pudo agregar el servicio: ${result.error.message}`, "error");
+    return;
+  }
+
+  document.getElementById("nuevoNombre").value = "";
+  document.getElementById("nuevoPrecio").value = "";
+  document.getElementById("nuevoDuracion").value = "";
+  document.getElementById("nuevaDescripcion").value = "";
+  const msg = result.descriptionSaved
+    ? "Servicio agregado correctamente"
+    : "Servicio agregado, pero no se guardo la descripcion (falta columna en Supabase).";
+  const type = result.descriptionSaved ? "success" : "error";
+  loadServicios(msg, type);
+}
+
+async function guardarServicio(id) {
+  const servicio = document.getElementById(`edit-nombre-${id}`).value;
+  const precio = Number(document.getElementById(`edit-precio-${id}`).value);
+  const duracion = document.getElementById(`edit-duracion-${id}`).value;
+  const descripcion = document.getElementById(`edit-descripcion-${id}`).value;
+
+  if (!servicio.trim()) {
+    showAdminNotice("El nombre no puede estar vacío", "error");
+    return;
+  }
+
+  if (!Number.isFinite(precio) || precio < 0) {
+    showAdminNotice("Ingresá un precio válido", "error");
+    return;
+  }
+
+  const result = await upsertServicioWithDescription(
+    id,
+    { servicio: servicio.trim(), precio, duracion: duracion.trim() },
+    descripcion.trim()
+  );
+
+  if (!result.ok) {
+    showAdminNotice(`No se pudo guardar el servicio: ${result.error.message}`, "error");
+    return;
+  }
+
+  const msg = result.descriptionSaved
+    ? "Servicio actualizado"
+    : "Servicio actualizado, pero no se guardo la descripcion (falta columna en Supabase).";
+  const type = result.descriptionSaved ? "success" : "error";
+  loadServicios(msg, type);
+}
+
+async function eliminarServicio(id){
+  await supabaseClient.from("servicios").delete().eq("id",id);
+  loadServicios();
+}
+
+// ⚙️ CONFIGURACIÓN
+async function crearConfiguracionBase(){
+  try {
+    const payload = {
+      hora_inicio: '09:00',
+      hora_fin: '18:00',
+      dias_disponibles: '[1,2,3,4,5]',
+      alias_pago: 'paula.pintos',
+      porcentaje_sena: 50,
+      admin_username: 'admin',
+      admin_email: null,
+      admin_password: null,
+      admin_password_hash: null
+    };
+
+    const { error } = await supabaseClient
+      .from('configuracion')
+      .insert([payload]);
+
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      if (msg.includes('permission denied') || msg.includes('rls') || msg.includes('row-level')) {
+        alert('Sin permiso para crear la configuración base. Ejecutá en Supabase SQL Editor: GRANT INSERT ON TABLE public.configuracion TO authenticated; y una policy INSERT para authenticated.');
+      } else {
+        alert('No se pudo crear la configuración base: ' + (error.message || 'error desconocido'));
+      }
+      return;
+    }
+
+    alert('Configuración base creada correctamente');
+    loadConfig();
+  } catch (e) {
+    alert('No se pudo crear la configuración base: ' + (e?.message || e));
+  }
+}
+
+async function loadConfig(){
+  const contentEl = document.getElementById("content");
+  if (!contentEl) return;
+
+  contentEl.innerHTML = `
+    <div class="glass p-4 md:p-6 rounded-2xl max-w-2xl">
+      <h2 class="text-lg md:text-xl mb-2">Configuración</h2>
+      <p class="text-xs text-gray-400">Cargando configuración...</p>
+    </div>
+  `;
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("configuracion")
+      .select("*")
+      .order("id", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      contentEl.innerHTML = `
+        <div class="glass p-4 md:p-6 rounded-2xl max-w-2xl">
+          <h2 class="text-lg md:text-xl mb-4">Configuración</h2>
+          <div class="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+            <p class="text-sm text-yellow-200">No existe una fila en la tabla configuracion.</p>
+            <p class="text-xs text-yellow-100/80 mt-1">Podés crearla desde este panel y continuar.</p>
+            <div class="mt-3 flex flex-col md:flex-row gap-2">
+              <button onclick="crearConfiguracionBase()" class="px-3 py-1.5 text-xs rounded-lg border border-cyan-400/40 text-cyan-200 hover:bg-cyan-500/20 transition">Crear configuración base</button>
+              <button onclick="loadConfig()" class="px-3 py-1.5 text-xs rounded-lg border border-yellow-400/40 text-yellow-100 hover:bg-yellow-500/20 transition">Reintentar</button>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    let html=`
+    <div class="glass p-4 md:p-6 rounded-2xl max-w-2xl">
+      <h2 class="text-lg md:text-xl mb-4 md:mb-6">Configuración</h2>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs text-gray-400">Hora de Inicio</label>
+          <input id="hora_inicio" type="time" value="${data.hora_inicio || '09:00'}" class="p-2 bg-black rounded w-full text-xs md:text-sm">
+        </div>
+        
+        <div>
+          <label class="text-xs text-gray-400">Hora de Fin</label>
+          <input id="hora_fin" type="time" value="${data.hora_fin || '18:00'}" class="p-2 bg-black rounded w-full text-xs md:text-sm">
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-400">Días Disponibles (JSON: [0,1,2,3,4,5,6] donde 0=domingo, 6=sábado)</label>
+          <textarea id="dias_disponibles" class="p-2 bg-black rounded w-full h-20 text-xs md:text-sm">${data.dias_disponibles || '[1,2,3,4,5]'}</textarea>
+          <p class="text-xs text-cyan-400 mt-1">Ejemplo: [1,2,3,4,5] = Lunes a Viernes</p>
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-400">Alias de Pago</label>
+          <input id="alias_pago" value="${data.alias_pago || ''}" class="p-2 bg-black rounded w-full text-xs md:text-sm">
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-400">Porcentaje de Seña (%)</label>
+          <input id="porcentaje_sena" value="${data.porcentaje_sena || 50}" type="number" class="p-2 bg-black rounded w-full text-xs md:text-sm">
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-400">Email Admin (recuperación)</label>
+          <input id="admin_email" type="email" value="${data.admin_email || ''}" class="p-2 bg-black rounded w-full text-xs md:text-sm" placeholder="correo@dominio.com">
+          <p class="text-[11px] text-gray-500 mt-1">Este mail recibe el enlace para restablecer la contraseña.</p>
+        </div>
+
+        <div class="pt-2 border-t border-white/10">
+          <label class="text-xs text-gray-400 block mb-1">Contraseña Admin (segura)</label>
+          <input id="admin_password_new" type="password" placeholder="Nueva contraseña" class="p-2 bg-black rounded w-full text-xs md:text-sm mb-2">
+          <input id="admin_password_confirm" type="password" placeholder="Confirmar nueva contraseña" class="p-2 bg-black rounded w-full text-xs md:text-sm">
+          <p class="text-[11px] text-gray-500 mt-2">Mínimo 10 caracteres. Recomendado: mayúscula, minúscula, número y símbolo.</p>
+          <button onclick="actualizarPasswordAdmin(${data.id})" class="mt-3 bg-violet-500 text-white px-4 py-2 rounded w-full font-bold text-xs md:text-sm hover:bg-violet-400 transition">Actualizar Contraseña Admin</button>
+        </div>
+
+        <button onclick="guardarConfig(${data.id})" class="bg-cyan-500 text-black px-6 py-2 rounded w-full font-bold text-sm md:text-base hover:bg-cyan-400 transition">Guardar Configuración</button>
+      </div>
+    </div>
+    `;
+
+    contentEl.innerHTML = html;
+  } catch (e) {
+    const msg = String(e?.message || e || 'Error desconocido');
+    contentEl.innerHTML = `
+      <div class="glass p-4 md:p-6 rounded-2xl max-w-2xl">
+        <h2 class="text-lg md:text-xl mb-4">Configuración</h2>
+        <div class="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+          <p class="text-sm text-red-300">No se pudo abrir Configuración.</p>
+          <p class="text-xs text-red-200/80 mt-1 break-words">${msg}</p>
+          <button onclick="loadConfig()" class="mt-3 px-3 py-1.5 text-xs rounded-lg border border-red-400/40 text-red-200 hover:bg-red-500/20 transition">Reintentar</button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function guardarConfig(id){
+  try {
+    const diasStr = document.getElementById("dias_disponibles").value;
+    const adminEmailValue = document.getElementById("admin_email").value.trim();
+    JSON.parse(diasStr); // Validar que sea JSON válido
+
+    const payload = {
+      hora_inicio:document.getElementById("hora_inicio").value,
+      hora_fin:document.getElementById("hora_fin").value,
+      alias_pago:document.getElementById("alias_pago").value,
+      porcentaje_sena:parseInt(document.getElementById("porcentaje_sena").value),
+      dias_disponibles:diasStr,
+      admin_email:adminEmailValue || null
+    };
+
+    let { error } = await supabaseClient.from("configuracion").update(payload).eq("id",id);
+
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      const missingEmailColumn = msg.includes('admin_email') || msg.includes('does not exist') || msg.includes('schema cache');
+      if (!missingEmailColumn) {
+        throw error;
+      }
+
+      const { error: fallbackError } = await supabaseClient.from("configuracion").update({
+        hora_inicio:document.getElementById("hora_inicio").value,
+        hora_fin:document.getElementById("hora_fin").value,
+        alias_pago:document.getElementById("alias_pago").value,
+        porcentaje_sena:parseInt(document.getElementById("porcentaje_sena").value),
+        dias_disponibles:diasStr
+      }).eq("id",id);
+
+      if (fallbackError) {
+        throw fallbackError;
+      }
+
+      alert("Configuración actualizada (sin guardar admin_email: falta columna en Supabase)");
+      loadConfig();
+      return;
+    }
+
+    alert("Configuración actualizada correctamente");
+    loadConfig();
+  } catch(e) {
+    const msg = String(e?.message || e || '').toLowerCase();
+    if (msg.includes('permission denied') || msg.includes('rls') || msg.includes('row-level')) {
+      alert('Sin permiso para guardar. Ejecutá este SQL en Supabase → SQL Editor:\n\nALTER TABLE configuracion ENABLE ROW LEVEL SECURITY;\n\nCREATE POLICY "admin_update" ON configuracion\nFOR UPDATE TO anon USING (true) WITH CHECK (true);\n\nCREATE POLICY "admin_select" ON configuracion\nFOR SELECT TO anon USING (true);');
+    } else if (msg.includes('json') || msg.includes('parse')) {
+      alert('Error: Verificá que el formato JSON de días sea válido. Ejemplo: [1,2,3,4,5]');
+    } else {
+      alert('Error al guardar configuración: ' + (e?.message || e));
+    }
+  }
+}
+
+async function actualizarPasswordAdmin(id) {
+  const newPasswordInput = document.getElementById('admin_password_new');
+  const confirmPasswordInput = document.getElementById('admin_password_confirm');
+
+  const newPassword = (newPasswordInput?.value || '').trim();
+  const confirmPassword = (confirmPasswordInput?.value || '').trim();
+
+  if (!newPassword || !confirmPassword) {
+    alert('Completá ambos campos de contraseña');
+    return;
+  }
+
+  if (newPassword.length < 10) {
+    alert('La contraseña debe tener al menos 10 caracteres');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    alert('Las contraseñas no coinciden');
+    return;
+  }
+
+  try {
+    const hash = await sha256(newPassword);
+
+    let { error } = await supabaseClient
+      .from('configuracion')
+      .update({ admin_password_hash: hash, admin_password: null })
+      .eq('id', id);
+
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      const missingHashColumn = msg.includes('admin_password_hash') || msg.includes('does not exist') || msg.includes('schema cache');
+
+      if (missingHashColumn) {
+        // Fallback temporal para compatibilidad si todavía no se creó la columna hash.
+        const { error: fallbackError } = await supabaseClient
+          .from('configuracion')
+          .update({ admin_password: newPassword })
+          .eq('id', id);
+
+        if (fallbackError) {
+          alert(`No se pudo actualizar la contraseña: ${fallbackError.message}`);
+          return;
+        }
+
+        alert('Contraseña actualizada en modo compatibilidad. Recomendado: crear admin_password_hash para máxima seguridad.');
+      } else {
+        const msgErr = String(error.message || '').toLowerCase();
+        if (msgErr.includes('permission denied') || msgErr.includes('rls') || msgErr.includes('row-level')) {
+          alert('Sin permiso para guardar. Ejecutá este SQL en Supabase → SQL Editor:\n\nALTER TABLE configuracion ENABLE ROW LEVEL SECURITY;\n\nCREATE POLICY "admin_update" ON configuracion\nFOR UPDATE TO anon USING (true) WITH CHECK (true);\n\nCREATE POLICY "admin_select" ON configuracion\nFOR SELECT TO anon USING (true);');
+        } else {
+          alert(`No se pudo actualizar la contraseña: ${error.message}`);
+        }
+        return;
+      }
+    } else {
+      alert('Contraseña de admin actualizada de forma segura');
+    }
+
+    if (newPasswordInput) newPasswordInput.value = '';
+    if (confirmPasswordInput) confirmPasswordInput.value = '';
+  } catch (e) {
+    alert('Error al actualizar la contraseña admin');
+    console.error(e);
+  }
+}
+
+// Subir imagen a Supabase Storage
+async function subirImagenAStorage(archivo) {
+  if (!archivo) return null;
+
+  // Validar que sea imagen
+  if (!archivo.type.startsWith('image/')) {
+    alert('Por favor selecciona un archivo de imagen (JPG, PNG, WebP)');
+    return null;
+  }
+
+  // Validar tamaño (máx 5MB)
+  if (archivo.size > 5 * 1024 * 1024) {
+    alert('La imagen no debe superar 5MB');
+    return null;
+  }
+
+  try {
+    // Generar nombre único para el archivo
+    const timestamp = Date.now();
+    const extension = archivo.name.substring(archivo.name.lastIndexOf('.'));
+    const nombreUnico = `producto_${timestamp}${extension}`;
+
+    console.log('Iniciando subida de:', nombreUnico);
+
+    // Subir a Storage
+    const { data, error } = await supabaseClient.storage
+      .from('productos')
+      .upload(nombreUnico, archivo);
+
+    if (error) {
+      console.error('Error subiendo imagen:', error);
+      alert('Error al subir la imagen: ' + (error.message || JSON.stringify(error)));
+      return null;
+    }
+
+    console.log('Imagen subida exitosamente:', data);
+    alert('✅ Imagen subida correctamente');
+    return nombreUnico;
+  } catch (error) {
+    console.error('Error en subida:', error);
+    alert('Error: ' + error.message);
+    return null;
+  }
+}
+
+// Previsualizar imagen antes de guardar
+function previsualizarImagen(productoId) {
+  const input = document.getElementById(`prod-imagen-file-${productoId}`);
+  const archivo = input.files[0];
+
+  if (archivo) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      // Opcional: mostrar preview temporal si quieres
+      console.log('Imagen seleccionada:', archivo.name);
+    };
+    reader.readAsDataURL(archivo);
+  }
+}
+
+// 🛍️ PRODUCTOS
+async function loadProductos(){
+  const { data } = await supabaseClient.from("productos").select("*");
+
+  let html=`
+  <div class="glass p-4 md:p-6 rounded-2xl">
+    <div class="flex items-center justify-between gap-3 mb-4 md:mb-6">
+      <h2 class="text-lg md:text-xl">Productos</h2>
+      <span class="text-[11px] md:text-xs px-2.5 py-1 rounded-full border border-cyan-500/30 text-cyan-300 bg-cyan-500/10">${(data || []).length} items</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4 mb-6 bg-white/5 border border-white/10 p-4 rounded-xl">
+      <input id="prodNombre" placeholder="Nombre" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+      <input id="prodPrecio" type="number" placeholder="Precio" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+      <input id="prodStock" type="number" placeholder="Stock" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+      <input id="prodDescuento" type="number" placeholder="Descuento %" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm focus:outline-none focus:border-cyan-400/70">
+      <div>
+        <label class="text-xs text-gray-400">Imagen JPG</label>
+        <input id="prodImagenFile" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm w-full file:mr-4 file:py-2 file:px-4 file:bg-cyan-500 file:text-black file:rounded file:text-xs file:font-bold">
+      </div>
+      <button onclick="agregarProducto()" class="bg-cyan-500 text-black px-4 rounded-lg col-span-1 md:col-span-2 lg:col-span-1 text-xs md:text-sm py-2.5 font-bold hover:bg-cyan-400 transition">Agregar Producto</button>
+    </div>
+
+    <div class="overflow-x-auto">
+  `;
+
+  data.forEach(p=>{
+    const estadoActivo = p.activo ? 'checked' : '';
+    const imagenUrl = p.imagen ? `https://svhyzqryvjuodmpybzmq.supabase.co/storage/v1/object/public/productos/${p.imagen}` : '';
+    html+=`
+      <div class="border border-white/10 rounded-xl p-3 md:p-4 mb-4 bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.02)]">
+        <!-- Previsualización de imagen -->
+        <div class="mb-3">
+          ${imagenUrl ? `<img src="${imagenUrl}" alt="${p.nombre}" class="w-full h-32 object-cover rounded-lg">` : `<div class="w-full h-32 bg-black rounded-lg flex items-center justify-center text-gray-500">Sin imagen</div>`}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 mb-3">
+          <div>
+            <label class="text-xs text-gray-400">Nombre</label>
+            <input id="prod-nombre-${p.id}" value="${p.nombre}" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm w-full focus:outline-none focus:border-cyan-400/70">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Precio</label>
+            <input id="prod-precio-${p.id}" type="number" value="${p.precio}" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm w-full focus:outline-none focus:border-cyan-400/70">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Stock</label>
+            <input id="prod-stock-${p.id}" type="number" value="${p.stock}" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm w-full focus:outline-none focus:border-cyan-400/70">
+          </div>
+          <div>
+            <label class="text-xs text-gray-400">Descuento %</label>
+            <input id="prod-descuento-${p.id}" type="number" value="${p.descuento}" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm w-full focus:outline-none focus:border-cyan-400/70">
+          </div>
+          <div class="md:col-span-2 lg:col-span-2">
+            <label class="text-xs text-gray-400">Cambiar imagen</label>
+            <input id="prod-imagen-file-${p.id}" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" class="p-2.5 bg-black/70 border border-white/10 rounded-lg text-xs md:text-sm w-full file:mr-2 file:py-1 file:px-3 file:bg-cyan-500/50 file:text-cyan-200 file:rounded file:text-xs" onchange="previsualizarImagen(${p.id})">
+          </div>
+          <div class="flex items-end">
+            <label class="flex items-center gap-2 cursor-pointer text-xs md:text-sm">
+              <input id="prod-activo-${p.id}" type="checkbox" ${estadoActivo} class="accent-cyan-500 w-4 h-4">
+              <span>Activo</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex gap-2 flex-col md:flex-row">
+          <button onclick="guardarProducto(${p.id})" class="flex-1 text-green-300 text-xs md:text-sm bg-green-500/20 border border-green-500/30 px-3 py-2 rounded-lg hover:bg-green-500/40 transition font-medium">✓ Guardar</button>
+          <button onclick="eliminarProducto(${p.id})" class="flex-1 text-red-300 text-xs md:text-sm bg-red-500/20 border border-red-500/30 px-3 py-2 rounded-lg hover:bg-red-500/40 transition font-medium">🗑️ Eliminar</button>
+        </div>
+      </div>
+    `;
+  });
+
+  html+=`</div></div>`;
+  document.getElementById("content").innerHTML=html;
+}
+
+async function agregarProducto(){
+  const nombre = document.getElementById("prodNombre").value;
+  const precio = parseInt(document.getElementById("prodPrecio").value);
+  const stock = parseInt(document.getElementById("prodStock").value);
+  const descuento = parseInt(document.getElementById("prodDescuento").value) || 0;
+  const archivoImagen = document.getElementById("prodImagenFile").files[0];
+
+  if (!nombre || !precio || stock === null) {
+    alert("Completa los campos: Nombre, Precio y Stock");
+    return;
+  }
+
+  let nombreImagen = null;
+
+  // Si se seleccionó una imagen, subirla
+  if (archivoImagen) {
+    nombreImagen = await subirImagenAStorage(archivoImagen);
+    if (!nombreImagen) return;
+  }
+
+  await supabaseClient.from("productos").insert([{
+    nombre,
+    precio,
+    stock,
+    descuento,
+    imagen: nombreImagen,
+    activo: true
+  }]);
+
+  document.getElementById("prodNombre").value = "";
+  document.getElementById("prodPrecio").value = "";
+  document.getElementById("prodStock").value = "";
+  document.getElementById("prodDescuento").value = "";
+  document.getElementById("prodImagenFile").value = "";
+  
+  alert("Producto agregado correctamente");
+  loadProductos();
+}
+
+async function guardarProducto(id){
+  const nombre = document.getElementById(`prod-nombre-${id}`).value;
+  const precio = parseInt(document.getElementById(`prod-precio-${id}`).value);
+  const stock = parseInt(document.getElementById(`prod-stock-${id}`).value);
+  const descuento = parseInt(document.getElementById(`prod-descuento-${id}`).value) || 0;
+  const archivoImagen = document.getElementById(`prod-imagen-file-${id}`).files[0];
+  const activo = document.getElementById(`prod-activo-${id}`).checked;
+
+  if (!nombre || !precio || stock === null) {
+    alert("Completa los campos: Nombre, Precio y Stock");
+    return;
+  }
+
+  let nombreImagen = null;
+
+  // Si se seleccionó una imagen, subirla
+  if (archivoImagen) {
+    nombreImagen = await subirImagenAStorage(archivoImagen);
+    if (!nombreImagen) return;
+  }
+
+  // Preparar objeto de actualización
+  const datosActualizar = {
+    nombre,
+    precio,
+    stock,
+    descuento,
+    activo
+  };
+
+  // Solo actualizar imagen si se cargó una nueva
+  if (nombreImagen) {
+    datosActualizar.imagen = nombreImagen;
+  }
+
+  await supabaseClient.from("productos").update(datosActualizar).eq("id", id);
+
+  alert("Producto actualizado");
+  loadProductos();
+}
+
+async function eliminarProducto(id){
+  if (confirm("¿Estás seguro de que quieres eliminar este producto?")) {
+    await supabaseClient.from("productos").delete().eq("id", id);
+    loadProductos();
+  }
+}
+</script>
+</head>
+<body class="p-4 md:p-10">
+
+<!-- Panel de inicio de sesión -->
+<div id="login-panel" class="fixed inset-0 bg-black/90 flex flex-col items-center justify-center z-50 p-4">
+    <img src="img/logo web.png" alt="Paula Pintos" class="h-24 md:h-28 lg:h-32 mb-2 md:mb-4 object-contain max-h-32">
+    <input id="username-input" type="text" placeholder="Usuario" 
+           class="p-3 rounded-xl bg-black/20 text-white mb-3 w-full md:w-64 text-center text-sm md:text-base" />
+    <input id="password-input" type="password" placeholder="Contraseña" 
+           class="p-3 rounded-xl bg-black/20 text-white mb-4 w-full md:w-64 text-center text-sm md:text-base" />
+  <p id="login-status" class="text-xs text-gray-400 mb-4 text-center max-w-sm">Verificando configuración segura...</p>
+    <button id="login-btn" 
+      class="px-6 py-3 bg-cyan-500 text-black rounded-xl font-bold w-full md:w-auto hover:bg-cyan-400 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>Entrar</button>
+    <button id="forgot-btn"
+      class="mt-3 px-6 py-2 bg-white/10 text-white rounded-xl font-semibold w-full md:w-auto hover:bg-white/20 transition">Olvidé mi contraseña</button>
+    
+    <a href="index.html" class="flex flex-col items-center gap-2 mt-10 text-cyan-500 hover:text-white transition opacity-60 hover:opacity-100">
+        <span class="text-xs uppercase tracking-widest font-bold">Ir a Página de Inicio</span>
+        <i class="fas fa-arrow-down text-lg animate-bounce"></i>
+    </a>
+</div>
+
+<div id="2fa-panel" class="fixed inset-0 bg-black/90 hidden flex-col items-center justify-center z-50 p-4">
+  <div class="glass p-5 md:p-7 rounded-2xl w-full max-w-md">
+    <h2 class="text-base md:text-lg font-bold mb-2">Verificación en dos pasos</h2>
+    <p class="text-xs text-gray-400 mb-4">Te enviamos un código a tu email. Ingresalo aquí:</p>
+    <input id="2fa-code" type="text" placeholder="Código de 6 dígitos" maxlength="6"
+      class="p-3 rounded-xl bg-black/20 text-white mb-4 w-full text-center text-lg tracking-widest" />
+    <p id="2fa-timer" class="text-xs text-gray-500 mb-4 text-center">Expira en: <span id="timer-seconds">300</span>s</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <button id="2fa-verify-btn" class="px-4 py-2 bg-cyan-500 text-black rounded-xl font-bold hover:bg-cyan-400 transition">Verificar</button>
+      <button id="2fa-resend-btn" class="px-4 py-2 bg-cyan-500/20 text-cyan-200 rounded-xl font-bold hover:bg-cyan-500/35 transition">Reenviar</button>
+      <button id="2fa-cancel-btn" class="px-4 py-2 bg-white/10 text-white rounded-xl font-bold hover:bg-white/20 transition">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="recovery-panel" class="fixed inset-0 bg-black/90 hidden flex-col items-center justify-center z-50 p-4">
+  <div class="glass p-5 md:p-7 rounded-2xl w-full max-w-md">
+    <h2 class="text-base md:text-lg font-bold mb-2">Restablecer contraseña admin</h2>
+    <p class="text-xs text-gray-400 mb-4">Ingresá la nueva contraseña para completar la recuperación.</p>
+
+    <input id="recovery-password" type="password" placeholder="Nueva contraseña"
+      class="p-3 rounded-xl bg-black/20 text-white mb-3 w-full text-sm" />
+    <input id="recovery-password-confirm" type="password" placeholder="Confirmar nueva contraseña"
+      class="p-3 rounded-xl bg-black/20 text-white mb-4 w-full text-sm" />
+
+    <div class="flex gap-2">
+      <button id="recovery-save-btn" class="flex-1 px-4 py-2 bg-cyan-500 text-black rounded-xl font-bold hover:bg-cyan-400 transition">Guardar</button>
+      <button id="recovery-cancel-btn" class="flex-1 px-4 py-2 bg-white/10 text-white rounded-xl font-bold hover:bg-white/20 transition">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+    const usernameInput = document.getElementById('username-input');
+    const passwordInput = document.getElementById('password-input');
+    const loginBtn = document.getElementById('login-btn');
+    const forgotBtn = document.getElementById('forgot-btn');
+    const panel = document.getElementById('login-panel');
+    const recoveryPanel = document.getElementById('recovery-panel');
+    const recoveryPasswordInput = document.getElementById('recovery-password');
+    const recoveryPasswordConfirmInput = document.getElementById('recovery-password-confirm');
+    const recoverySaveBtn = document.getElementById('recovery-save-btn');
+    const recoveryCancelBtn = document.getElementById('recovery-cancel-btn');
+    const twoFAPanel = document.getElementById('2fa-panel');
+    const twoFACodeInput = document.getElementById('2fa-code');
+    const twoFAVerifyBtn = document.getElementById('2fa-verify-btn');
+    const twoFAResendBtn = document.getElementById('2fa-resend-btn');
+    const twoFACancelBtn = document.getElementById('2fa-cancel-btn');
+    const timerSeconds = document.getElementById('timer-seconds');
+    const loginStatus = document.getElementById('login-status');
+
+    let loginAttempts = 0;
+    const MAX_ATTEMPTS = 5;
+    const LOCKOUT_TIME = 5 * 60 * 1000;
+    let lockoutUntil = null;
+    let adminUsername = null;
+    let adminPasswordHash = null;
+    let adminPasswordPlain = null;
+    let adminEmail = null;
+    let adminConfigId = null;
+    let pendingTwoFAEmail = null;
+    let twoFAExpiry = null;
+    let twoFATimerInterval = null;
+    const OTP_EXPIRY_MS = 5 * 60 * 1000;
+    const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+    const TWO_FA_PENDING_KEY = 'admin_2fa_pending_until';
+
+    function getOtpCacheKey(email) {
+      return `admin_otp_last_sent_${String(email || '').toLowerCase()}`;
+    }
+
+    function getLastOtpSentAt(email) {
+      try {
+        const raw = localStorage.getItem(getOtpCacheKey(email));
+        const value = Number(raw);
+        return Number.isFinite(value) ? value : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function setLastOtpSentAt(email, timestamp) {
+      try {
+        localStorage.setItem(getOtpCacheKey(email), String(timestamp));
+      } catch (_) {
+        // Ignorar errores de storage para no bloquear login.
+      }
+    }
+
+    function setTwoFAPending() {
+      try {
+        sessionStorage.setItem(TWO_FA_PENDING_KEY, String(Date.now() + OTP_EXPIRY_MS));
+      } catch (_) {
+        // No bloquear si storage falla.
+      }
+    }
+
+    function clearTwoFAPending() {
+      try {
+        sessionStorage.removeItem(TWO_FA_PENDING_KEY);
+      } catch (_) {
+        // No bloquear si storage falla.
+      }
+    }
+
+    function isTwoFAPending() {
+      try {
+        const raw = sessionStorage.getItem(TWO_FA_PENDING_KEY);
+        const value = Number(raw);
+        return Number.isFinite(value) && Date.now() < value;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function getResendRemainingSeconds(email) {
+      if (!email) return 0;
+      const lastSentAt = getLastOtpSentAt(email);
+      if (!lastSentAt) return 0;
+      return Math.max(0, Math.ceil(((lastSentAt + OTP_RESEND_COOLDOWN_MS) - Date.now()) / 1000));
+    }
+
+    function openTwoFAPanel() {
+      panel.style.display = 'none';
+      twoFAPanel.classList.remove('hidden');
+      twoFAPanel.classList.add('flex');
+      twoFACodeInput.focus();
+      startTimer();
+    }
+
+    async function sha256(text) {
+      const data = new TextEncoder().encode(text);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(digest))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
+    async function showTwoFAPanel(email) {
+      pendingTwoFAEmail = email;
+      const now = Date.now();
+      const lastSentAt = getLastOtpSentAt(email);
+
+      // Si ya enviamos recientemente y sigue válido, no reenviar.
+      if (lastSentAt) {
+        const stillValid = now < (lastSentAt + OTP_EXPIRY_MS);
+        const inCooldown = now < (lastSentAt + OTP_RESEND_COOLDOWN_MS);
+
+        if (stillValid && inCooldown) {
+          twoFAExpiry = lastSentAt + OTP_EXPIRY_MS;
+          openTwoFAPanel();
+          return;
+        }
+      }
+
+      twoFAExpiry = now + OTP_EXPIRY_MS;
+
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: `${window.location.origin}${window.location.pathname}`
+        }
+      });
+
+      if (error) {
+        const msg = String(error.message || '').toLowerCase();
+        const isRateLimit = msg.includes('rate limit') || msg.includes('too many requests') || msg.includes('email');
+
+        // Si hay código previo válido, abrimos panel para ingresarlo.
+        if (lastSentAt && now < (lastSentAt + OTP_EXPIRY_MS)) {
+          twoFAExpiry = lastSentAt + OTP_EXPIRY_MS;
+          openTwoFAPanel();
+          return;
+        }
+
+        // Sin código previo y no podemos enviar: ingresamos sin 2FA y avisamos.
+        if (isRateLimit) {
+          panel.style.display = 'none';
+          loginStatus.textContent = 'Acceso concedido (2FA omitido: límite de emails alcanzado).';
+          clearTwoFAPending();
+          return;
+        }
+
+        // Otro error de envío: ingresamos igual sin bloquear.
+        panel.style.display = 'none';
+        loginStatus.textContent = 'Acceso concedido (2FA omitido: error de email).';
+        clearTwoFAPending();
+        return;
+      }
+
+      setLastOtpSentAt(email, now);
+      openTwoFAPanel();
+    }
+
+    function startTimer() {
+      if (twoFATimerInterval) {
+        clearInterval(twoFATimerInterval);
+      }
+
+      const updateTimerUi = () => {
+        const remaining = Math.max(0, Math.ceil((twoFAExpiry - Date.now()) / 1000));
+        timerSeconds.textContent = remaining;
+
+        if (twoFAResendBtn) {
+          const resendRemaining = getResendRemainingSeconds(pendingTwoFAEmail);
+          const canResend = resendRemaining <= 0;
+          twoFAResendBtn.disabled = !canResend;
+          twoFAResendBtn.textContent = canResend
+            ? 'Reenviar'
+            : `Reenviar (${resendRemaining}s)`;
+          twoFAResendBtn.classList.toggle('opacity-50', !canResend);
+          twoFAResendBtn.classList.toggle('cursor-not-allowed', !canResend);
+        }
+
+        if (remaining === 0) {
+          clearInterval(twoFATimerInterval);
+          twoFATimerInterval = null;
+          alert('El código expiró. Intenta nuevamente.');
+          hideTwoFAPanel();
+        }
+      };
+
+      updateTimerUi();
+      twoFATimerInterval = setInterval(() => {
+        updateTimerUi();
+      }, 1000);
+    }
+
+    function hideTwoFAPanel() {
+      if (twoFATimerInterval) {
+        clearInterval(twoFATimerInterval);
+        twoFATimerInterval = null;
+      }
+      twoFAPanel.classList.add('hidden');
+      twoFAPanel.classList.remove('flex');
+      twoFACodeInput.value = '';
+      pendingTwoFAEmail = null;
+      clearTwoFAPending();
+      panel.style.display = 'flex';
+      usernameInput.focus();
+    }
+
+    function isLockedOut() {
+      if (lockoutUntil && Date.now() < lockoutUntil) {
+        const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+        loginStatus.textContent = 'Bloqueado por ' + remaining + 's. Demasiados intentos.';
+        return true;
+      }
+      lockoutUntil = null;
+      return false;
+    }
+
+    function recordFailedAttempt() {
+      loginAttempts++;
+      if (loginAttempts >= MAX_ATTEMPTS) {
+        lockoutUntil = Date.now() + LOCKOUT_TIME;
+        loginStatus.textContent = 'Bloqueado por 5 minutos tras ' + MAX_ATTEMPTS + ' intentos fallidos.';
+        loginBtn.disabled = true;
+        setTimeout(() => {
+          loginAttempts = 0;
+          lockoutUntil = null;
+          loginBtn.disabled = false;
+          loginStatus.textContent = 'Login disponible nuevamente.';
+        }, LOCKOUT_TIME);
+      } else {
+        loginStatus.textContent = 'Intento ' + loginAttempts + '/' + MAX_ATTEMPTS;
+      }
+    }
+
+    async function ensureAdminConfigRow(inputHash) {
+      try {
+        if (adminConfigId) {
+          const updatePayload = {
+            admin_username: adminUsername || 'admin',
+            admin_password_hash: inputHash,
+            admin_password: null,
+            admin_email: adminEmail || null
+          };
+          const { error } = await supabaseClient
+            .from('configuracion')
+            .update(updatePayload)
+            .eq('id', adminConfigId);
+          if (!error) return true;
+        }
+
+        const insertPayload = {
+          hora_inicio: '09:00',
+          hora_fin: '19:00',
+          dias_disponibles: '[1,2,3,4,5]',
+          alias_pago: 'paula.pintos',
+          porcentaje_sena: 50,
+          admin_username: adminUsername || 'admin',
+          admin_password_hash: inputHash,
+          admin_password: null,
+          admin_email: adminEmail || null
+        };
+
+        const { data, error } = await supabaseClient
+          .from('configuracion')
+          .insert([insertPayload])
+          .select('id')
+          .single();
+
+        if (error) return false;
+        adminConfigId = data?.id || null;
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+
+    async function loadAdminCredentials() {
+      try {
+        const { data, error } = await supabaseClient
+          .from('configuracion')
+          .select('id, admin_username, admin_password_hash, admin_password, admin_email')
+          .order('id', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (!data) {
+          adminUsername = 'admin';
+          adminPasswordHash = null;
+          adminPasswordPlain = null;
+          adminEmail = null;
+          adminConfigId = null;
+          loginStatus.textContent = 'No existe fila de configuración. Podés ingresar con Auth y se creará automáticamente.';
+          loginBtn.disabled = false;
+          return;
+        }
+
+        adminUsername = data?.admin_username ? String(data.admin_username).trim() : 'admin';
+        adminPasswordHash = data?.admin_password_hash ? String(data.admin_password_hash).trim().toLowerCase() : null;
+        adminPasswordPlain = data?.admin_password ? String(data.admin_password).trim() : null;
+        adminEmail = data?.admin_email ? String(data.admin_email).trim() : null;
+        adminConfigId = data?.id || null;
+
+        if (!adminPasswordHash && !adminPasswordPlain) {
+          loginStatus.textContent = 'No hay contraseña admin configurada en Supabase.';
+          loginBtn.disabled = false;
+          return;
+        }
+
+        const status = adminEmail 
+          ? 'Ingresa usuario y contraseña.'
+          : 'Ingresa usuario y contraseña.';
+        loginStatus.textContent = status;
+        loginBtn.disabled = false;
+      } catch (e) {
+        loginStatus.textContent = 'No se pudo cargar configuración. Podés intentar iniciar sesión igual.';
+        loginBtn.disabled = false;
+        console.error('Error:', e);
+      }
+    }
+
+    async function tryAuthPasswordFallback(inputPassword, inputUsername = '') {
+      const emailCandidates = [];
+      const normalizedAdminEmail = (adminEmail || '').trim().toLowerCase();
+      const normalizedInputUsername = (inputUsername || '').trim().toLowerCase();
+
+      if (normalizedAdminEmail) {
+        emailCandidates.push(normalizedAdminEmail);
+      }
+
+      // Permite iniciar con email en el campo Usuario aunque admin_email no esté configurado.
+      if (normalizedInputUsername.includes('@') && !emailCandidates.includes(normalizedInputUsername)) {
+        emailCandidates.push(normalizedInputUsername);
+      }
+
+      if (!emailCandidates.length) {
+        return { ok: false, reason: 'missing-email' };
+      }
+
+      let authOk = false;
+      let lastError = null;
+      for (const email of emailCandidates) {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email,
+          password: inputPassword
+        });
+
+        if (!error && data?.session) {
+          authOk = true;
+          if (!adminEmail) {
+            adminEmail = email;
+          }
+          break;
+        }
+
+        lastError = error;
+      }
+
+      if (!authOk) {
+        return { ok: false, reason: 'auth-failed', error: lastError };
+      }
+
+      // Sincroniza hash en configuracion para evitar depender de este fallback.
+      try {
+        const inputHash = await sha256(inputPassword);
+        await ensureAdminConfigRow(inputHash);
+        adminPasswordHash = inputHash;
+        adminPasswordPlain = null;
+      } catch (_) {
+        // No bloqueamos el login por un fallo de sincronización.
+      }
+
+      return { ok: true };
+    }
+
+    async function ensureAuthenticatedSession(inputPassword, inputUsername = '') {
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        if (data?.session) {
+          return { ok: true };
+        }
+      } catch (_) {
+        // Si falla lectura de sesión, intentamos login por password.
+      }
+
+      return await tryAuthPasswordFallback(inputPassword, inputUsername);
+    }
+
+    async function checkPassword() {
+      if (isLockedOut()) return;
+      if (loginBtn.disabled) return;
+
+      if (!adminUsername) {
+        adminUsername = 'admin';
+      }
+
+      if (!adminPasswordHash && !adminPasswordPlain) {
+        const inputUsernameWithoutConfig = (usernameInput?.value || '').trim();
+        const inputPasswordWithoutConfig = (passwordInput?.value || '').trim();
+
+        if (!inputUsernameWithoutConfig || !inputPasswordWithoutConfig) {
+          alert('Ingresá usuario y contraseña');
+          return;
+        }
+
+        const usernameLooksLikeEmail = inputUsernameWithoutConfig.includes('@');
+        if (inputUsernameWithoutConfig !== adminUsername && !usernameLooksLikeEmail) {
+          recordFailedAttempt();
+          alert('Usuario o contraseña incorrectos');
+          return;
+        }
+
+        const authSession = await ensureAuthenticatedSession(inputPasswordWithoutConfig, inputUsernameWithoutConfig);
+        if (!authSession.ok) {
+          const authReason = authSession.reason === 'missing-email'
+            ? 'Falta configurar admin_email o ingresar un email en el campo Usuario.'
+            : 'La clave de Auth no coincide.';
+          alert('No se pudo validar el acceso: se requiere sesión Auth activa para el panel admin. ' + authReason);
+          return;
+        }
+
+        loginAttempts = 0;
+        setTwoFAPending();
+        if (adminEmail) {
+          await showTwoFAPanel(adminEmail);
+        } else {
+          panel.style.display = 'none';
+        }
+        return;
+      }
+
+      const inputUsername = (usernameInput?.value || '').trim();
+      const inputPassword = (passwordInput?.value || '').trim();
+
+      if (!inputUsername || !inputPassword) {
+        alert('Ingresá usuario y contraseña');
+        return;
+      }
+
+      if (inputUsername !== adminUsername) {
+        recordFailedAttempt();
+        alert('Usuario o contraseña incorrectos');
+        return;
+      }
+
+      const inputHash = await sha256(inputPassword);
+      const matchesHash = adminPasswordHash && inputHash === adminPasswordHash;
+      const matchesPlain = adminPasswordPlain && inputPassword === adminPasswordPlain;
+
+      if (!matchesHash && !matchesPlain) {
+        // Si Auth ya tiene la contraseña nueva (por recovery) pero configuracion quedó vieja,
+        // aceptamos por Auth y resincronizamos hash en configuracion.
+        const authFallback = await tryAuthPasswordFallback(inputPassword, inputUsername);
+        if (!authFallback.ok) {
+          recordFailedAttempt();
+          alert('Usuario o contraseña incorrectos');
+          return;
+        }
+      }
+
+      const authSession = await ensureAuthenticatedSession(inputPassword, inputUsername);
+      if (!authSession.ok) {
+        const authReason = authSession.reason === 'missing-email'
+          ? 'Falta configurar admin_email o ingresar un email en Usuario.'
+          : 'La clave de Auth no coincide.';
+        alert('No se pudo abrir el panel admin porque falta sesión autenticada. ' + authReason);
+        return;
+      }
+
+      loginAttempts = 0;
+
+      if (adminEmail) {
+        setTwoFAPending();
+        await showTwoFAPanel(adminEmail);
+      } else {
+        panel.style.display = 'none';
+      }
+    }
+
+    async function verify2FA() {
+      const inputCode = (twoFACodeInput?.value || '').trim();
+
+      if (!inputCode) {
+        alert('Ingresá el código de 6 dígitos');
+        return;
+      }
+
+      if (Date.now() > twoFAExpiry) {
+        alert('El código expiró.');
+        hideTwoFAPanel();
+        return;
+      }
+
+      if (!pendingTwoFAEmail) {
+        alert('No hay verificación activa. Intentá iniciar sesión nuevamente.');
+        return;
+      }
+
+      const { error } = await supabaseClient.auth.verifyOtp({
+        email: pendingTwoFAEmail,
+        token: inputCode,
+        type: 'email'
+      });
+
+      if (error) {
+        alert('Código incorrecto o expirado.');
+        return;
+      }
+
+      panel.style.display = 'none';
+      twoFAPanel.classList.add('hidden');
+      twoFAPanel.classList.remove('flex');
+      twoFACodeInput.value = '';
+      pendingTwoFAEmail = null;
+      clearTwoFAPending();
+    }
+
+    loginBtn.addEventListener('click', () => {
+      checkPassword().catch(e => console.error(e));
+    });
+
+    usernameInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') passwordInput.focus();
+    });
+
+    passwordInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') checkPassword().catch(err => console.error(err));
+    });
+
+    twoFACodeInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') verify2FA().catch(err => console.error(err));
+    });
+
+    twoFAVerifyBtn.addEventListener('click', () => {
+      verify2FA().catch(e => console.error(e));
+    });
+
+    twoFAResendBtn.addEventListener('click', () => {
+      if (!pendingTwoFAEmail) {
+        alert('No hay verificación activa. Volvé a iniciar sesión.');
+        return;
+      }
+
+      const resendRemaining = getResendRemainingSeconds(pendingTwoFAEmail);
+      if (resendRemaining > 0) {
+        alert('Esperá ' + resendRemaining + 's para reenviar el código.');
+        return;
+      }
+
+      showTwoFAPanel(pendingTwoFAEmail).catch(e => {
+        console.error(e);
+        alert('No se pudo reenviar el código en este momento');
+      });
+    });
+
+    twoFACancelBtn.addEventListener('click', () => {
+      loginAttempts = 0;
+      hideTwoFAPanel();
+    });
+
+    function hasRecoveryHash() {
+    const hash = window.location.hash || '';
+    return hash.includes('type=recovery') || hash.includes('access_token=');
+  }
+
+  function showRecoveryPanel() {
+    if (!recoveryPanel) return;
+    panel.style.display = 'none';
+    recoveryPanel.classList.remove('hidden');
+    recoveryPanel.classList.add('flex');
+  }
+
+  function hideRecoveryPanel() {
+    if (!recoveryPanel) return;
+    recoveryPanel.classList.add('hidden');
+    recoveryPanel.classList.remove('flex');
+    panel.style.display = 'flex';
+  }
+
+  async function saveRecoveredPasswordInConfig(newPassword) {
+    const hash = await sha256(newPassword);
+    let targetId = adminConfigId;
+
+    if (!targetId) {
+      const { data: cfgRow, error: cfgErr } = await supabaseClient
+        .from('configuracion')
+        .select('id')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (cfgErr) {
+        throw cfgErr;
+      }
+
+      if (!cfgRow?.id) {
+        throw new Error('No existe una fila en configuracion para guardar la contraseña admin.');
+      }
+
+      targetId = cfgRow.id;
+      adminConfigId = cfgRow.id;
+    }
+
+    let { error } = await supabaseClient
+      .from('configuracion')
+      .update({ admin_password_hash: hash, admin_password: null })
+      .eq('id', targetId);
+
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      const missingHashColumn = msg.includes('admin_password_hash') || msg.includes('does not exist') || msg.includes('schema cache');
+      if (missingHashColumn) {
+        const { error: fallbackError } = await supabaseClient
+          .from('configuracion')
+          .update({ admin_password: newPassword })
+          .eq('id', targetId);
+        if (fallbackError) {
+          throw fallbackError;
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  async function sendRecoveryEmail() {
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+
+    // Leer admin_email de configuracion
+    let emailDestino = adminEmail;
+
+    if (!emailDestino) {
+      const { data: cfgData } = await supabaseClient
+        .from('configuracion')
+        .select('admin_email')
+        .order('id', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      emailDestino = cfgData?.admin_email ? String(cfgData.admin_email).trim() : null;
+    }
+
+    if (!emailDestino) {
+      const ingresado = prompt('No hay email de recuperación configurado. Ingresá tu email admin:');
+      emailDestino = ingresado ? ingresado.trim() : null;
+    }
+
+    if (!emailDestino) {
+      alert('No se pudo enviar: falta el email de recuperación.');
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.resetPasswordForEmail(emailDestino, {
+      redirectTo
+    });
+
+    if (error) {
+      alert(`No se pudo enviar el mail de recuperación: ${error.message}`);
+      return;
+    }
+
+    alert('✉️ Te enviamos un mail de recuperación a ' + emailDestino + '. Revisá también spam.');
+  }
+
+  async function completeRecovery() {
+    const newPassword = (recoveryPasswordInput?.value || '').trim();
+    const confirmPassword = (recoveryPasswordConfirmInput?.value || '').trim();
+
+    if (!newPassword || !confirmPassword) {
+      alert('Completá ambos campos de contraseña');
+      return;
+    }
+
+    if (newPassword.length < 10) {
+      alert('La contraseña debe tener al menos 10 caracteres');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert('Las contraseñas no coinciden');
+      return;
+    }
+
+    const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+    if (error) {
+      alert(`No se pudo actualizar la contraseña en Auth: ${error.message}`);
+      return;
+    }
+
+    try {
+      await saveRecoveredPasswordInConfig(newPassword);
+    } catch (e) {
+      alert(`La contraseña se cambió en Auth, pero falló al sincronizar configuracion: ${e.message || e}`);
+      return;
+    }
+
+    await supabaseClient.auth.signOut();
+
+    if (recoveryPasswordInput) recoveryPasswordInput.value = '';
+    if (recoveryPasswordConfirmInput) recoveryPasswordConfirmInput.value = '';
+
+    if (window.location.hash) {
+      history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    hideRecoveryPanel();
+    alert('Contraseña actualizada. Ya podés ingresar con la nueva contraseña.');
+    loadAdminCredentials();
+  }
+
+  forgotBtn.addEventListener('click', () => {
+    sendRecoveryEmail().catch((e) => {
+      console.error('Error enviando recuperación:', e);
+      alert('Ocurrió un error al enviar el mail de recuperación');
+    });
+  });
+  recoverySaveBtn.addEventListener('click', () => {
+    completeRecovery().catch((e) => {
+      console.error('Error completando recuperación:', e);
+      alert('Ocurrió un error al restablecer la contraseña');
+    });
+  });
+  recoveryCancelBtn.addEventListener('click', () => {
+    hideRecoveryPanel();
+  });
+
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showRecoveryPanel();
+      return;
+    }
+
+    if (event === 'SIGNED_IN' && isTwoFAPending()) {
+      panel.style.display = 'none';
+      twoFAPanel.classList.add('hidden');
+      twoFAPanel.classList.remove('flex');
+      clearTwoFAPending();
+      if (window.location.hash) {
+        history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  });
+
+  if (hasRecoveryHash()) {
+    showRecoveryPanel();
+  }
+
+  supabaseClient.auth.getSession().then(({ data }) => {
+    if (data?.session && isTwoFAPending()) {
+      panel.style.display = 'none';
+      clearTwoFAPending();
+      if (window.location.hash) {
+        history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }).catch(() => {
+    // Ignorar fallos al leer sesión.
+  });
+
+  loadAdminCredentials();
+</script>
+
+<!-- Header Admin -->
+<header class="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 md:mb-10 gap-4">
+  <!-- Logo -->
+  <div class="flex items-center gap-2 md:gap-3">
+    <img src="img/logo web.png" alt="Paula Pintos" class="h-8 md:h-10">
+    <span class="font-bold tracking-wide text-sm md:text-base">Admin Panel</span>
+  </div>
+
+  <div class="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+    <!-- Botón Home -->
+    <a href="index.html"
+       class="glass px-4 md:px-6 py-2 md:py-3 rounded-xl hover:bg-white/10 transition flex items-center gap-2 text-xs md:text-sm w-full md:w-auto justify-center md:justify-start">
+      <i class="fas fa-home"></i>
+      <span>Inicio</span>
+    </a>
+    <button id="logout-btn" type="button"
+       class="px-4 md:px-6 py-2 md:py-3 rounded-xl border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition flex items-center gap-2 text-xs md:text-sm w-full md:w-auto justify-center md:justify-start">
+      <i class="fas fa-right-from-bracket"></i>
+      <span>Cerrar Sesión</span>
+    </button>
+  </div>
+</header>
+
+<!-- Botones de Pestaña -->
+<div class="flex flex-wrap gap-2 md:gap-4 mb-6 md:mb-10">
+  <button onclick="showSection('turnos', this)" class="tab-btn px-3 md:px-6 py-2 md:py-3 rounded-xl glass text-xs md:text-sm flex-1 md:flex-none font-medium">Turnos</button>
+  <button onclick="showSection('servicios', this)" class="tab-btn px-3 md:px-6 py-2 md:py-3 rounded-xl glass text-xs md:text-sm flex-1 md:flex-none font-medium">Servicios</button>
+  <button onclick="showSection('config', this)" class="tab-btn px-3 md:px-6 py-2 md:py-3 rounded-xl glass text-xs md:text-sm flex-1 md:flex-none font-medium">Config</button>
+  <button onclick="showSection('productos', this)" class="tab-btn px-3 md:px-6 py-2 md:py-3 rounded-xl glass text-xs md:text-sm flex-1 md:flex-none font-medium">Productos</button>
+</div>
+
+<!-- Contenido Principal -->
+<div id="content" class="max-w-full overflow-x-auto"></div>
+
+<script>
+const logoutBtn = document.getElementById('logout-btn');
+logoutBtn?.addEventListener('click', async () => {
+  try {
+    await supabaseClient.auth.signOut();
+  } catch (e) {
+    console.error('Error cerrando sesión:', e);
+  }
+
+  const loginPanelEl = document.getElementById('login-panel');
+  const twoFAPanelEl = document.getElementById('2fa-panel');
+  const recoveryPanelEl = document.getElementById('recovery-panel');
+  const usernameEl = document.getElementById('username-input');
+  const passwordEl = document.getElementById('password-input');
+  const loginStatusEl = document.getElementById('login-status');
+
+  if (twoFAPanelEl) {
+    twoFAPanelEl.classList.add('hidden');
+    twoFAPanelEl.classList.remove('flex');
+  }
+  if (recoveryPanelEl) {
+    recoveryPanelEl.classList.add('hidden');
+    recoveryPanelEl.classList.remove('flex');
+  }
+  if (loginPanelEl) {
+    loginPanelEl.style.display = 'flex';
+  }
+  if (usernameEl) usernameEl.value = '';
+  if (passwordEl) passwordEl.value = '';
+  if (loginStatusEl) loginStatusEl.textContent = 'Sesión cerrada. Ingresá nuevamente.';
+});
+
+setTimeout(() => showSection('turnos'), 500);
+</script>
+
+</body>
+</html>

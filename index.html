@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paula Pintos | Hair Color Studio</title>
+    
+    <!-- Librerías -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,800&family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --violet: #8b5cf6;
+            --cyan: #06b6d4;
+            --dark: #050505;
+        }
+        body { background-color: var(--dark); color: white; font-family: 'Poppins', sans-serif; overflow-x: hidden; margin: 0; scroll-behavior: smooth; font-weight: 400; }
+        * { font-family: 'Poppins', sans-serif; }
+        .font-luxury { font-family: 'Poppins', sans-serif; font-weight: 800; letter-spacing: -0.02em; }
+
+        /* Loader */
+        #loader { position: fixed; inset: 0; background: var(--dark); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+
+        /* Fondo */
+        #bg-container { position: fixed; inset: 0; z-index: -2; overflow: hidden; background-color: var(--dark); }
+        #bg-gif { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.35) contrast(1.1); }
+
+        .gradient-overlay {
+            position: fixed; inset: 0;
+            background: linear-gradient(to bottom, rgba(23,169,232,0.1), rgba(5,5,5,0.9));
+            z-index: -1; pointer-events: none;
+        }
+
+        /* Nav */
+        nav { backdrop-filter: blur(15px); border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+        .burger-btn {
+            transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+        }
+
+        @keyframes menuPop {
+            0% { transform: scale(1); }
+            45% { transform: scale(1.14); }
+            100% { transform: scale(1); }
+        }
+
+        .burger-btn.menu-pop {
+            animation: menuPop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .burger-btn span {
+            display: block;
+            transition: transform 0.25s ease, opacity 0.2s ease;
+            transform-origin: center;
+        }
+
+        .burger-btn.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .burger-btn.is-open span:nth-child(2) { opacity: 0; }
+        .burger-btn.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* Mobile Menu */
+        #mobile-menu {
+            position: fixed; top: 0; right: -100%; width: 100%; height: 100vh;
+            background: rgba(5,5,5,0.98); z-index: 150; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: 0.5s cubic-bezier(0.77,0,0.175,1);
+        }
+        #mobile-menu.active { right: 0; }
+
+        .mobile-menu-close {
+            position: absolute;
+            top: 1.2rem;
+            right: 1rem;
+            width: 2.4rem;
+            height: 2.4rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.88) rotate(-60deg);
+            transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease;
+        }
+
+        #mobile-menu.active .mobile-menu-close {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1) rotate(0deg);
+        }
+
+        .mobile-menu-close:hover {
+            background: rgba(255,255,255,0.16);
+            transform: scale(1.08) rotate(90deg);
+        }
+
+        @media (max-width: 767px) {
+            .burger-btn {
+                position: fixed;
+                top: 1.1rem;
+                right: 1rem;
+                z-index: 220;
+                background: rgba(5,5,5,0.45);
+                border: 1px solid rgba(255,255,255,0.25);
+                border-radius: 0.65rem;
+                padding: 0.45rem;
+                backdrop-filter: blur(8px);
+            }
+        }
+
+        /* Hero */
+        #hero-content-wrapper { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 20; pointer-events: none; }
+        #hero-content-wrapper * { pointer-events: auto; }
+
+        /* Main content: fondo sólido para que las secciones se vean correctamente */
+        .main-content { position: relative; z-index: 30; margin-top: 100vh; background-color: #060606; }
+
+        /* Sección alternada: fondo visiblemente diferenciado */
+        .section-alt { background-color: #0e0e0e; }
+
+        /* Cards reutilizables */
+        .review-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.09);
+            padding: 2.5rem; border-radius: 2rem; transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .review-card:hover { border-color: var(--cyan); transform: translateY(-8px); box-shadow: 0 20px 40px rgba(6,182,212,0.15); }
+
+        /* Estilos para iconos de "¿Por qué Elegirnos?" */
+        .benefit-icon {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 80px;
+            height: 80px;
+            border-radius: 2rem;
+            background: rgba(6,182,212,0.1);
+            margin-left: auto;
+            margin-right: auto;
+            transition: all 0.3s ease;
+        }
+
+        .review-card:hover .benefit-icon {
+            background: rgba(6,182,212,0.25);
+            transform: scale(1.1);
+        }
+
+        .benefit-icon.violet-bg {
+            background: rgba(139,92,246,0.1);
+        }
+
+        .review-card:hover .benefit-icon.violet-bg {
+            background: rgba(139,92,246,0.25);
+        }
+
+        .review-card h3 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+            font-size: 1.125rem;
+            letter-spacing: -0.01em;
+        }
+
+        .review-card p {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 400;
+            font-size: 0.925rem;
+            line-height: 1.6;
+        }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .cursor { display: inline-block; width: 3px; background-color: var(--cyan); margin-left: 5px; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .whatsapp-float {
+            position: fixed;
+            right: 30px;
+            bottom: 30px;
+            z-index: 110;
+            display: flex;
+            align-items: flex-end;
+            gap: 0.65rem;
+        }
+
+        .wa-bubble {
+            position: relative;
+            max-width: 240px;
+            padding: 0.74rem 2rem 0.74rem 0.9rem;
+            border-radius: 1rem;
+            font-size: 0.72rem;
+            line-height: 1.45;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            background: rgba(8,8,8,0.88);
+            border: 1px solid rgba(255,255,255,0.14);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 0 1px rgba(139,92,246,0.22), 0 0 20px rgba(6,182,212,0.14), 0 10px 24px rgba(0,0,0,0.3);
+            animation: waBubbleFloat 2.8s ease-in-out infinite;
+            transform-origin: right bottom;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .wa-bubble::after {
+            content: '';
+            position: absolute;
+            right: -5px;
+            bottom: 14px;
+            width: 10px;
+            height: 10px;
+            transform: rotate(45deg);
+            background: rgba(8,8,8,0.88);
+            border-top: 1px solid rgba(255,255,255,0.14);
+            border-right: 1px solid rgba(255,255,255,0.14);
+        }
+
+        .wa-bubble strong {
+            color: #22d3ee;
+            font-weight: 700;
+            text-shadow: 0 0 10px rgba(34,211,238,0.3);
+        }
+
+        .wa-min-toggle {
+            position: absolute;
+            top: 0.32rem;
+            right: 0.32rem;
+            width: 1.2rem;
+            height: 1.2rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.09);
+            color: #ffffff;
+            font-size: 0.8rem;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        .wa-min-toggle:hover {
+            background: rgba(255,255,255,0.18);
+            transform: scale(1.06);
+        }
+
+        .whatsapp-btn {
+            background: #25d366;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            color: #ffffff;
+            transition: transform 0.24s ease, box-shadow 0.24s ease;
+            text-decoration: none;
+        }
+
+        .whatsapp-btn:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 16px rgba(6,182,212,0.25), 0 10px 22px rgba(0,0,0,0.35);
+        }
+
+        .whatsapp-float.is-minimized .wa-bubble {
+            opacity: 0;
+            transform: scale(0.92) translateX(8px);
+            pointer-events: none;
+        }
+
+        @keyframes waBubbleFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        @media (max-width: 767px) {
+            .whatsapp-float {
+                right: 16px;
+                bottom: 16px;
+            }
+
+            .wa-bubble {
+                position: absolute;
+                right: 0;
+                bottom: 74px;
+                max-width: 195px;
+                font-size: 0.68rem;
+            }
+
+            .wa-bubble::after {
+                right: 22px;
+                bottom: -5px;
+                border-top: none;
+                border-right: none;
+                border-bottom: 1px solid rgba(255,255,255,0.14);
+                border-left: 1px solid rgba(255,255,255,0.14);
+            }
+        }
+
+        .section-kicker {
+            color: var(--cyan); text-transform: uppercase; letter-spacing: 0.45em;
+            font-size: 10px; font-weight: 700; font-family: 'Poppins', sans-serif; margin-bottom: 1.25rem; display: inline-block;
+        }
+
+        .section-header {
+            position: relative;
+            z-index: 2;
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .hero-title-scale {
+            font-size: clamp(2.5rem, 7vw, 5.8rem);
+            line-height: 0.98;
+        }
+
+        .hero-sub-scale {
+            font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+            line-height: 1.65;
+        }
+
+        .section-title-scale {
+            font-size: clamp(2rem, 4.2vw, 3.35rem);
+            line-height: 1.08;
+        }
+
+        .section-lead-scale {
+            font-size: clamp(0.92rem, 1.45vw, 1.08rem);
+            line-height: 1.75;
+        }
+
+        .notebook-section-menu {
+            display: none;
+        }
+
+        @media (min-width: 1024px) {
+            .notebook-section-menu {
+                display: block;
+                position: sticky;
+                top: 68px;
+                z-index: 60;
+                margin: 0 auto 2.25rem;
+                max-width: 1120px;
+                padding: 0.75rem 1rem;
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 999px;
+                background: rgba(8,8,8,0.72);
+                backdrop-filter: blur(12px);
+                transition: background 0.25s ease, border-color 0.25s ease, padding 0.25s ease, box-shadow 0.25s ease;
+            }
+
+            .notebook-section-menu.is-scrolled {
+                background: rgba(0,0,0,0.8);
+                backdrop-filter: blur(12px);
+                border-color: rgba(255,255,255,0.1);
+                border-bottom-color: rgba(255,255,255,0.16);
+                padding: 0.52rem 0.86rem;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.28);
+            }
+
+            .notebook-section-menu ul {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                gap: 0.65rem;
+                flex-wrap: wrap;
+            }
+
+            .notebook-section-menu a {
+                display: inline-block;
+                padding: 0.42rem 0.95rem;
+                border: 1px solid rgba(255,255,255,0.2);
+                border-radius: 999px;
+                color: rgba(255,255,255,0.82);
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                letter-spacing: 0.16em;
+                font-weight: 600;
+                position: relative;
+                overflow: hidden;
+                transition: color 0.22s ease, border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+            }
+
+            .notebook-section-menu a::after {
+                content: '';
+                position: absolute;
+                left: 0.55rem;
+                right: 0.55rem;
+                bottom: 0.22rem;
+                height: 2px;
+                border-radius: 999px;
+                background: linear-gradient(120deg, rgba(139,92,246,0.95), rgba(6,182,212,0.95));
+                transform: scaleX(0);
+                transform-origin: center;
+                transition: transform 0.24s ease;
+            }
+
+            .notebook-section-menu a:hover {
+                color: #ffffff;
+                border-color: rgba(6,182,212,0.7);
+                background: rgba(6,182,212,0.14);
+                box-shadow: 0 0 20px rgba(6,182,212,0.18);
+            }
+
+            .notebook-section-menu a:hover::after {
+                transform: scaleX(1);
+            }
+
+            .notebook-section-menu a.is-active {
+                color: #ffffff;
+                background: rgba(255,255,255,0.1);
+                border-color: rgba(139,92,246,0.82);
+                box-shadow: 0 0 0 1px rgba(139,92,246,0.35), 0 0 20px rgba(6,182,212,0.16);
+            }
+
+            .notebook-section-menu a.is-active::after {
+                transform: scaleX(1);
+            }
+        }
+
+        .scroll-arrow {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255,255,255,0.75);
+            font-size: 1.1rem;
+            animation: floatArrow 1.8s ease-in-out infinite;
+            transition: color 0.25s ease;
+        }
+
+        .scroll-arrow:hover {
+            color: #ffffff;
+        }
+
+        #proceso {
+            scroll-margin-top: 170px;
+        }
+
+        @keyframes floatArrow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(6px); }
+        }
+
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 1.5rem;
+            justify-items: center;
+            align-items: start;
+            text-align: center;
+        }
+
+        .benefit-item {
+            width: min(240px, 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        @media (min-width: 640px) {
+            .benefits-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 2rem;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .benefits-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
+        }
+
+        .service-gallery-card {
+            position: relative;
+            overflow: visible;
+            border-radius: 1.5rem;
+            border: none;
+            background: transparent;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .service-gallery-image {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.5rem;
+            background: #111;
+            aspect-ratio: 4 / 5;
+            border: 2px solid rgba(6,182,212,0.3);
+            transition: all 0.4s cubic-bezier(0.77,0,0.175,1);
+        }
+
+        .service-gallery-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.5s ease, filter 0.5s ease;
+            filter: brightness(0.7) contrast(1.1);
+        }
+
+        .service-gallery-card:hover .service-gallery-image {
+            border-color: var(--cyan);
+            box-shadow: 0 0 30px rgba(6,182,212,0.3);
+        }
+
+        .service-gallery-card:hover .service-gallery-image img {
+            transform: scale(1.08);
+            filter: brightness(0.9) contrast(1.15);
+        }
+
+        .service-gallery-info {
+            padding: 1.5rem 0;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .service-gallery-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .service-gallery-title-text {
+            flex-grow: 1;
+        }
+
+        .service-gallery-title-text p {
+            color: var(--cyan);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .service-gallery-title-text h4 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: white;
+            margin: 0.5rem 0 0 0;
+        }
+
+        .gallery-expand-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(6,182,212,0.5);
+            background: rgba(6,182,212,0.09);
+            color: var(--cyan);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .gallery-expand-btn:hover {
+            background: rgba(6,182,212,0.25);
+            border-color: var(--cyan);
+            transform: scale(1.1);
+        }
+
+        .service-gallery-details {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: max-height 0.4s ease, opacity 0.4s ease;
+            margin-top: 0;
+        }
+
+        .service-gallery-details.active {
+            max-height: 300px;
+            opacity: 1;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(6,182,212,0.08);
+            border: 1px solid rgba(6,182,212,0.2);
+            border-radius: 0.75rem;
+        }
+
+        .service-gallery-details h5 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: white;
+            margin: 0 0 0.75rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .service-gallery-details h5 i {
+            color: var(--cyan);
+        }
+
+        .service-gallery-details ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .service-gallery-details li {
+            color: #d1d5db;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .service-gallery-details li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--cyan);
+            font-weight: 700;
+        }
+
+        .service-gallery-note {
+            border: 2px dashed rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.025);
+            border-radius: 1.5rem;
+        }
+
+        .reviews-mobile-track {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.15rem;
+            padding: 0.2rem 0.2rem 0.9rem;
+            transition: opacity 0.28s ease, transform 0.28s ease;
+        }
+
+        .reviews-mobile-track.is-transitioning {
+            opacity: 0.38;
+            transform: translateY(10px);
+        }
+
+        .reviews-mobile-item {
+            min-width: 0;
+        }
+
+        .reviews-mobile-item.review-card {
+            align-items: flex-start;
+            text-align: left;
+            padding: 2rem 1.55rem;
+        }
+
+        .review-quote {
+            font-size: 0.95rem;
+            line-height: 1.72;
+            color: #d4d4d8;
+            font-style: normal;
+            margin-top: 0.15rem;
+        }
+
+        .review-card-enter {
+            animation: reviewCardFade 0.34s ease;
+        }
+
+        @keyframes reviewCardFade {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (min-width: 768px) {
+            .reviews-mobile-track {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 767px) {
+            .trabajos-mobile-track {
+                display: flex;
+                overflow-x: auto;
+                gap: 1rem;
+                scroll-snap-type: x mandatory;
+                -webkit-overflow-scrolling: touch;
+                padding: 0.15rem 0.1rem 0.8rem;
+            }
+
+            .trabajos-mobile-track > * {
+                flex: 0 0 84vw;
+                max-width: 84vw;
+                scroll-snap-align: center;
+            }
+
+            .reviews-mobile-track {
+                gap: 1rem;
+                padding-bottom: 0.5rem;
+            }
+
+            .trabajos-mobile-track::-webkit-scrollbar,
+            .reviews-mobile-track::-webkit-scrollbar {
+                display: none;
+            }
+
+            .trabajos-mobile-track,
+            .reviews-mobile-track {
+                scrollbar-width: none;
+            }
+        }
+
+        /* Botones de navegación de galerías */
+        .gallery-nav-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .gallery-nav-btn {
+            background: rgba(6, 182, 212, 0.2);
+            border: 1px solid rgba(6, 182, 212, 0.5);
+            color: var(--cyan);
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .gallery-nav-btn:hover {
+            background: rgba(6, 182, 212, 0.4);
+            border-color: var(--cyan);
+            transform: scale(1.1);
+        }
+
+        .gallery-nav-btn:active {
+            transform: scale(0.95);
+        }
+
+        .gallery-wrapper {
+            flex: 1;
+            min-width: 0;
+        }
+
+        @media (max-width: 767px) {
+            .media-showcase {
+                display: block;
+            }
+
+            .media-showcase .gallery-wrapper {
+                width: 100%;
+            }
+
+            .media-showcase .gallery-nav-btn {
+                position: absolute;
+                top: 50%;
+                z-index: 4;
+                transform: translateY(-50%);
+            }
+
+            #trabajos-prev,
+            #reviews-prev {
+                left: 0.35rem;
+            }
+
+            #trabajos-next,
+            #reviews-next {
+                right: 0.35rem;
+            }
+        }
+
+        /* ── Process Timeline ─────────────────────────── */
+        .process-row {
+            display: flex;
+            flex-direction: column;
+            gap: 3rem;
+        }
+
+        @media (min-width: 1024px) {
+            .process-row { flex-direction: row; align-items: flex-start; gap: 0; }
+        }
+
+        .timeline-step {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 0 1.25rem;
+        }
+
+        .timeline-icon {
+            width: 82px; height: 82px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.75rem;
+            position: relative; z-index: 1;
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+            margin-bottom: 1.75rem;
+            flex-shrink: 0;
+        }
+
+        .timeline-icon.cyan {
+            border: 1px solid rgba(6,182,212,0.5);
+            background: rgba(6,182,212,0.09);
+            color: var(--cyan);
+            box-shadow: 0 0 0 14px rgba(6,182,212,0.04);
+        }
+        .timeline-icon.violet {
+            border: 1px solid rgba(139,92,246,0.5);
+            background: rgba(139,92,246,0.09);
+            color: var(--violet);
+            box-shadow: 0 0 0 14px rgba(139,92,246,0.04);
+        }
+        .timeline-step:hover .timeline-icon.cyan {
+            transform: scale(1.12);
+            box-shadow: 0 0 0 18px rgba(6,182,212,0.07), 0 0 32px rgba(6,182,212,0.32);
+        }
+        .timeline-step:hover .timeline-icon.violet {
+            transform: scale(1.12);
+            box-shadow: 0 0 0 18px rgba(139,92,246,0.07), 0 0 32px rgba(139,92,246,0.28);
+        }
+
+        /* Conector horizontal (solo visible en desktop) */
+        .timeline-connector {
+            display: none;
+            width: 60px; flex-shrink: 0; height: 1px;
+            margin-top: 40px;
+            background: linear-gradient(to right, rgba(6,182,212,0.45), rgba(139,92,246,0.35));
+        }
+        @media (min-width: 1024px) { .timeline-connector { display: block; } }
+
+        /* ── Before / After ──────────────────────────── */
+        .before-after-wrapper {
+            position: relative; width: 100%;
+            border-radius: 1.25rem; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: #111;
+            touch-action: none; user-select: none;
+            box-shadow: 0 24px 40px rgba(0,0,0,0.3);
+            aspect-ratio: 3 / 4;
+            cursor: ew-resize;
+        }
+
+        .before-after-base, .before-after-overlay {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+        }
+        .before-after-base img, .before-after-overlay img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .before-after-overlay { width: 50%; overflow: hidden; }
+
+        .before-after-divider {
+            position: absolute; top: 0; left: 50%;
+            width: 2px; height: 100%;
+            background: rgba(255,255,255,0.9);
+            transform: translateX(-50%); pointer-events: none;
+        }
+        .before-after-handle {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 46px; height: 46px; border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.4);
+            background: rgba(5,5,5,0.78);
+            display: flex; align-items: center; justify-content: center;
+            color: white; pointer-events: none; font-size: 0.9rem;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+        }
+        .before-after-label {
+            position: absolute; top: 0.8rem;
+            padding: 0.4rem 0.75rem; border-radius: 999px;
+            font-size: 0.6rem; letter-spacing: 0.18em;
+            text-transform: uppercase; font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.18);
+            backdrop-filter: blur(8px);
+        }
+        .before-label { left: 0.8rem; background: rgba(5,5,5,0.6); }
+        .after-label  { right: 0.8rem; background: rgba(6,182,212,0.22); }
+
+        /* ── Hero CTA ────────────────────────────────── */
+        #hero-cta-btn {
+            display: inline-block;
+            padding: 1rem 2.5rem;
+            border-radius: 999px;
+            background: linear-gradient(120deg, #8b5cf6, #06b6d4);
+            color: #ffffff;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            border: none;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+        }
+        #hero-cta-btn:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.08);
+            box-shadow:
+                0 0 18px rgba(139,92,246,0.55),
+                0 0 48px rgba(6,182,212,0.35),
+                0 12px 32px rgba(0,0,0,0.4);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- WhatsApp -->
+    <div class="whatsapp-float" id="wa-float">
+        <div class="wa-bubble" id="wa-bubble">
+            <button type="button" class="wa-min-toggle" id="wa-min-toggle" aria-label="Minimizar globo de WhatsApp">−</button>
+            ¿Querés renovar tu look?
+            <br>
+            <strong>¡Escribinos para agendar!</strong>
+        </div>
+        <a href="https://wa.me/5491156925501" target="_blank" rel="noopener noreferrer" class="whatsapp-btn" aria-label="Abrir WhatsApp">
+            <i class="fab fa-whatsapp"></i>
+        </a>
+    </div>
+
+    <!-- Loader -->
+    <div id="loader">
+        <div class="text-center">
+           <img id="loader-logo" src="img/logointro.png" alt="Paula Pintos" class="h-42 md:h-42 mb-4 md:mb-6">
+             <div class="w-48 h-[1px] bg-white/10 mx-auto overflow-hidden mt-6">
+                <div id="progress" class="h-full bg-cyan-500 w-0"></div>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navegación -->
+    <nav class="fixed top-0 w-full z-[100] p-6 flex justify-between items-center bg-black/40">
+        <!-- BOTÓN LOGIN STAFF (Superior Izquierda) -->
+        <a href="admin.html" class="text-[10px] uppercase tracking-widest font-bold opacity-50 hover:opacity-100 transition border border-white/20 px-4 py-2 rounded-full">
+            <i class="fas fa-lock mr-2"></i> Login Staff
+        </a>
+
+        <a href="index.html" class="absolute left-1/2 -translate-x-1/2">
+            <img src="img/logo web.png" alt="Paula Pintos" class="h-32">
+        </a>
+        
+        <div class="flex items-center gap-6">
+           
+            <div class="burger-btn md:hidden cursor-pointer flex flex-col gap-1.5" id="burger-menu">
+                <span class="w-6 h-0.5 bg-white"></span>
+                <span class="w-6 h-0.5 bg-white"></span>
+                <span class="w-6 h-0.5 bg-white"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Menú Mobile -->
+    <div id="mobile-menu">
+        <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Cerrar menú">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="flex flex-col gap-8 text-center">
+            <a href="index.html" class="mobile-link border border-white text-white px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-white/10 transition">Servicios</a>
+            <a href="agendar turno.html" class="mobile-link bg-cyan-500 text-black px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-cyan-400 transition">Reservar Ahora</a>
+            <a href="tienda.html" class="mobile-link border border-white text-white px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-white/10 transition">Tienda</a>
+            <a href="index.html" class="text-white/50 text-xs hover:text-white transition underline underline-offset-4">ir a inicio</a>
+            <a href="admin.html" class="mobile-link text-xs opacity-40 uppercase tracking-widest mt-4 italic">Acceso Personal</a>
+        </div>
+    </div>
+
+    <!-- Fondo -->
+    <div id="bg-container">
+        <img id="bg-gif" src="img/banner.jpg" alt="background">
+    </div>
+    <div class="gradient-overlay"></div>
+
+    <!-- Hero -->
+    <div id="hero-content-wrapper">
+        <div class="max-w-4xl text-center px-4">
+            <h1 id="hero-title" class="text-5xl md:text-7xl lg:text-8xl font-medium tracking-tight text-white opacity-0">
+                Tu cabello,
+                <br>
+                <span class="bg-gradient-to-r from-violet-500 to-cyan-400 bg-clip-text text-transparent">
+                    tu identidad
+                </span>
+            </h1>
+            <p id="hero-sub" class="text-lg text-zinc-300 mt-4 max-w-xl mx-auto opacity-0">
+                Balayage y coloración premium para resultados naturales.
+            </p>
+            <div id="hero-btns" class="flex flex-col gap-4 justify-center items-center opacity-0">
+                <a href="agendar turno.html" class="mt-6 bg-gradient-to-r from-violet-500 to-cyan-400 hover:opacity-90 transition-all duration-300 shadow-xl px-10 py-4 rounded-full text-white font-bold uppercase text-[10px] tracking-widest">Agendar Turno</a>
+                <a href="#servicios" class="text-white/60 text-xs hover:text-white transition underline underline-offset-4">ver servicios</a>
+                <a href="#servicios" class="scroll-arrow" aria-label="Ir a servicios">
+                    <i class="fa-solid fa-chevron-down"></i>
+                </a>
+                <p class="text-[11px] text-zinc-400 mt-1">
+                    Diseño de color <span class="font-accent text-violet-400 text-2xl leading-none align-middle">exclusivo</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contenido -->
+    <div class="main-content">
+        <nav class="notebook-section-menu" aria-label="Navegación de secciones">
+            <ul>
+                <li><a href="#servicios">Servicios</a></li>
+                <li><a href="tienda.html">Tienda</a></li>
+                <li><a href="#por-que-elegirnos">Por qué elegirnos</a></li>
+                <li><a href="#proceso">Nuestro Proceso</a></li>
+                <li><a href="#antes-despues">Antes y después</a></li>
+                <li><a href="#reviews">Reseñas</a></li>
+            </ul>
+        </nav>
+        
+        <!-- Sección Servicios -->
+        <section id="servicios" class="py-32 px-10 max-w-7xl mx-auto">
+            <div class="text-center mb-6 section-header">
+                <span class="section-kicker">Nuestras Especialidades</span>
+            </div>
+            <h2 class="ds-h2-section mb-6 text-center section-header">Servicios <span class="ds-gradient-text italic">Diseñados para Vos</span></h2>
+            <div class="grid md:grid-cols-3 gap-10 text-center">
+                <div class="rounded-2xl border border-white/10 p-6 hover:scale-[1.02] hover:border-violet-500/40 transition-all duration-300">
+                    <i class="fa-solid fa-brush text-cyan-400 text-2xl mb-4"></i>
+                    <h3 class="text-2xl font-bold mb-4">Balayage Signature</h3>
+                    <p class="line-clamp-2 text-sm text-zinc-400">Técnicas de iluminación a mano libre para lograr un rubio natural, luminoso y de muy bajo mantenimiento. Cada mechón es pintado de forma única para un resultado irrepetible.</p>
+                    <p class="text-xs text-cyan-500 uppercase tracking-widest font-semibold">Alta iluminación · Degradado natural</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 p-6 hover:scale-[1.02] hover:border-violet-500/40 transition-all duration-300">
+                    <i class="fa-solid fa-spray-can text-cyan-400 text-2xl mb-4"></i>
+                    <h3 class="text-2xl font-bold mb-4">Recuperación Capilar</h3>
+                    <p class="line-clamp-2 text-sm text-zinc-400">Tratamientos intensivos con activos de última generación para restaurar la fibra dañada, devolver elasticidad, brillo y suavidad visible desde la primera sesión.</p>
+                    <p class="text-xs text-violet-400 uppercase tracking-widest font-semibold">Nutrición profunda · Anti-rotura</p>
+                </div>
+                <div class="rounded-2xl border border-white/10 p-6 hover:scale-[1.02] hover:border-violet-500/40 transition-all duration-300">
+                    <i class="fa-solid fa-scissors text-cyan-400 text-2xl mb-4"></i>
+                    <h3 class="text-2xl font-bold mb-4">Corte de Autor</h3>
+                    <p class="line-clamp-2 text-sm text-zinc-400">Diseños estructurados en base a visagismo facial, textura del cabello y estilo de vida. Cada corte potencia tus rasgos y se adapta a tu rutina real de styling.</p>
+                    <p class="text-xs text-cyan-500 uppercase tracking-widest font-semibold">Visagismo · Corte personalizado</p>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button class="mt-10 bg-violet-500 hover:bg-violet-600 px-6 py-3 rounded-full transition" onclick="window.location.href='agendar turno.html'">
+                    Reservar turno
+                </button>
+            </div>
+
+            <!-- Galería de trabajos: reemplazá las imágenes por fotos reales dentro de /img -->
+            <div class="mt-20">
+                <div class="text-center mb-10 section-header">
+                    <span class="section-kicker">Trabajos Realizados</span>
+                    <h3 class="ds-h2-section mt-3">Imágenes de resultados reales</h3>
+                    <p class="text-zinc-400 max-w-xl mx-auto mt-3">
+                        Resultados reales de clientas que confiaron en nuestro trabajo.
+                    </p>
+                </div>
+                <div class="gallery-nav-container media-showcase">
+                    <button class="gallery-nav-btn" id="trabajos-prev" aria-label="Anterior">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div class="gallery-wrapper">
+                        <div class="trabajos-mobile-track grid md:grid-cols-3 gap-10">
+                    <article class="service-gallery-card hover:scale-[1.03] transition-all duration-300" data-gallery-item>
+                        <div class="service-gallery-image">
+                            <img src="img/banner.jpg" alt="Trabajo realizado de balayage" loading="lazy" decoding="async">
+                        </div>
+                        <div class="service-gallery-info">
+                            <div class="service-gallery-title">
+                                <div class="service-gallery-title-text">
+                                    <p>Balayage Signature</p>
+                                    <h4>Iluminación suave y natural</h4>
+                                </div>
+                                <button class="gallery-expand-btn" data-expand-btn aria-label="Ver detalles">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="service-gallery-details" data-expand-details>
+                                <h5><i class="fa-solid fa-sparkles"></i>Detalles del servicio:</h5>
+                                <ul>
+                                    <li>Tiempo de servicio: 90 minutos</li>
+                                    <li>Técnica premium de degradado</li>
+                                    <li>Iluminación multidimensional</li>
+                                    <li>Tratamiento capilar incluido</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="service-gallery-card hover:scale-[1.03] transition-all duration-300" data-gallery-item>
+                        <div class="service-gallery-image">
+                            <img src="img/imagendelocal.png" alt="Trabajo realizado de coloración capilar" loading="lazy" decoding="async">
+                        </div>
+                        <div class="service-gallery-info">
+                            <div class="service-gallery-title">
+                                <div class="service-gallery-title-text">
+                                    <p>Color Completo</p>
+                                    <h4>Corrección y brillo premium</h4>
+                                </div>
+                                <button class="gallery-expand-btn" data-expand-btn aria-label="Ver detalles">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="service-gallery-details" data-expand-details>
+                                <h5><i class="fa-solid fa-sparkles"></i>Detalles del servicio:</h5>
+                                <ul>
+                                    <li>Cobertura total de canas</li>
+                                    <li>Pigmentación duradera 6+ semanas</li>
+                                    <li>Corrección de tonos previos</li>
+                                    <li>Sellado de color profesional</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </article>
+                    <article class="service-gallery-card service-gallery-note flex items-center justify-center p-8 text-center">
+                        <div>
+                            <i class="fa-regular fa-image text-4xl text-cyan-500 mb-5"></i>
+                            <h4 class="text-xl font-semibold mb-3">Sumar nueva imagen</h4>
+                            <p class="text-sm text-gray-400 leading-relaxed">Agregá una foto en la carpeta <strong>img/</strong> y cambiá el atributo <strong>src</strong> de este bloque para mostrar otro trabajo realizado.</p>
+                        </div>
+                    </article>
+                </div>
+                    </div>
+                    <button class="gallery-nav-btn" id="trabajos-next" aria-label="Siguiente">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="text-center">
+                    <button class="mt-10 bg-violet-500 hover:bg-violet-600 px-6 py-3 rounded-full transition" onclick="window.location.href='agendar turno.html'">
+                        Reservar turno
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección ¿Por qué Elegirnos? -->
+        <section id="por-que-elegirnos" class="py-24 px-10 section-alt">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-14 section-header">
+                    <h2 class="ds-h2-section">¿Por qué elegirnos?</h2>
+                </div>
+                <div class="benefits-grid">
+                    <div class="benefit-item">
+                        <i class="fa-solid fa-user-check text-cyan-500 text-3xl"></i>
+                        <span class="text-white font-semibold text-base">Diagnóstico real según tu tipo de cabello</span>
+                        <span class="text-gray-400 text-xs leading-snug">Evaluamos textura, base y estado capilar antes de definir el servicio.</span>
+                    </div>
+                    <div class="benefit-item">
+                        <i class="fa-solid fa-wand-magic-sparkles text-violet-400 text-3xl"></i>
+                        <span class="text-white font-semibold text-base">Técnicas actualizadas de coloración profesional</span>
+                        <span class="text-gray-400 text-xs leading-snug">Aplicamos métodos vigentes con foco en resultado natural y cuidado de la fibra.</span>
+                    </div>
+                    <div class="benefit-item">
+                        <i class="fa-solid fa-flask-vial text-cyan-500 text-3xl"></i>
+                        <span class="text-white font-semibold text-base">Productos Profesionales</span>
+                        <span class="text-gray-400 text-xs leading-snug">Marcas de alta gama para tu cabello.</span>
+                    </div>
+                    <div class="benefit-item">
+                        <i class="fa-solid fa-star text-violet-400 text-3xl"></i>
+                        <span class="text-white font-semibold text-base">Resultados Naturales</span>
+                        <span class="text-gray-400 text-xs leading-snug">Look auténtico que refleja tu identidad.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección Proceso — timeline animado con iconos -->
+        <section id="proceso" class="py-24 px-10 section-alt">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16">
+                    <span class="section-kicker">Nuestro Proceso</span>
+                    <h2 class="ds-h2-section">Cómo trabajamos para lograr <span class="ds-gradient-text italic">tu mejor versión</span></h2>
+                </div>
+                <div class="process-row">
+
+                    <!-- Paso 1 -->
+                    <div class="timeline-step">
+                        <div class="timeline-icon cyan hover:scale-110 transition">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </div>
+                        <span class="text-xs text-cyan-400 tracking-[0.3em] mb-2 block">01</span>
+                        <h3 class="text-xl font-bold mb-3">Diagnóstico</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Evaluamos base capilar, historial técnico y porosidad para definir el punto de partida ideal.</p>
+                    </div>
+
+                    <div class="timeline-connector"></div>
+
+                    <!-- Paso 2 -->
+                    <div class="timeline-step">
+                        <div class="timeline-icon violet hover:scale-110 transition">
+                            <i class="fa-solid fa-comments"></i>
+                        </div>
+                        <span class="text-xs text-cyan-400 tracking-[0.3em] mb-2 block">02</span>
+                        <h3 class="text-xl font-bold mb-3">Asesoramiento</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Diseñamos una propuesta con tono, técnica y mantenimiento ideal para tu estilo de vida.</p>
+                    </div>
+
+                    <div class="timeline-connector"></div>
+
+                    <!-- Paso 3 -->
+                    <div class="timeline-step">
+                        <div class="timeline-icon cyan hover:scale-110 transition">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        </div>
+                        <span class="text-xs text-cyan-400 tracking-[0.3em] mb-2 block">03</span>
+                        <h3 class="text-xl font-bold mb-3">Servicio</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Aplicamos el servicio con tiempos controlados y mezclas precisas para proteger la fibra capilar.</p>
+                    </div>
+
+                    <div class="timeline-connector"></div>
+
+                    <!-- Paso 4 -->
+                    <div class="timeline-step">
+                        <div class="timeline-icon violet hover:scale-110 transition">
+                            <i class="fa-solid fa-star"></i>
+                        </div>
+                        <span class="text-xs text-cyan-400 tracking-[0.3em] mb-2 block">04</span>
+                        <h3 class="text-xl font-bold mb-3">Resultado Final</h3>
+                        <p class="text-gray-400 text-sm leading-relaxed">Estilizado completo, sellado de color y guía personalizada para prolongar el resultado en casa.</p>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección Antes y Después — 3 comparadores interactivos -->
+        <section id="antes-despues" class="py-24 px-10">
+            <div class="max-w-7xl mx-auto">
+                <div class="text-center mb-6">
+                    <span class="section-kicker">Antes y Después</span>
+                </div>
+                <h2 class="ds-h2-section text-center mb-6">Transformaciones reales, <span class="ds-gradient-text italic">resultados visibles</span></h2>
+                <p class="ds-body text-center max-w-2xl mx-auto mb-14">Deslizá cada comparador para ver la diferencia que hacen el diagnóstico correcto, la técnica adecuada y los productos de calidad profesional.</p>
+
+                <!-- Grid de 3 carruseles -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+
+                    <!-- Comparador 1: Balayage -->
+                    <div>
+                        <p class="text-center text-[10px] text-cyan-500 uppercase tracking-widest font-bold mb-4">Balayage Signature</p>
+                        <div class="before-after-wrapper" data-before-after tabindex="0"
+                             aria-label="Comparador Balayage antes y después"
+                             aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+                             data-images='[
+                               {"before": "img/imagendelocal.png", "after": "img/banner.jpg"},
+                               {"before": "img/banner.jpg", "after": "img/imagendelocal.png"},
+                               {"before": "img/imagendelocal.png", "after": "img/banner.jpg"}
+                             ]'>
+                            <div class="before-after-base">
+                                <img src="img/banner.jpg" alt="Resultado balayage" loading="lazy" decoding="async">
+                            </div>
+                            <div class="before-after-overlay" data-overlay>
+                                <img src="img/imagendelocal.png" alt="Cabello antes" loading="lazy" decoding="async">
+                            </div>
+                            <span class="before-after-label before-label">Antes</span>
+                            <span class="before-after-label after-label">Después</span>
+                            <div class="before-after-divider" data-divider></div>
+                            <div class="before-after-handle" data-handle aria-hidden="true">
+                                <i class="fa-solid fa-left-right"></i>
+                            </div>
+                            <div class="before-after-nav" data-nav>
+                                <button class="before-after-nav-btn" data-img-btn="0" aria-label="Imagen 1">1</button>
+                                <button class="before-after-nav-btn" data-img-btn="1" aria-label="Imagen 2">2</button>
+                                <button class="before-after-nav-btn" data-img-btn="2" aria-label="Imagen 3">3</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparador 2: Color Completo -->
+                    <div>
+                        <p class="text-center text-[10px] text-cyan-500 uppercase tracking-widest font-bold mb-4">Color Completo</p>
+                        <div class="before-after-wrapper" data-before-after tabindex="0"
+                             aria-label="Comparador Color Completo antes y después"
+                             aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+                             data-images='[
+                               {"before": "img/banner.jpg", "after": "img/imagendelocal.png"},
+                               {"before": "img/imagendelocal.png", "after": "img/banner.jpg"},
+                               {"before": "img/banner.jpg", "after": "img/imagendelocal.png"}
+                             ]'>
+                            <div class="before-after-base">
+                                <img src="img/imagendelocal.png" alt="Resultado color completo" loading="lazy" decoding="async">
+                            </div>
+                            <div class="before-after-overlay" data-overlay>
+                                <img src="img/banner.jpg" alt="Cabello antes" loading="lazy" decoding="async">
+                            </div>
+                            <span class="before-after-label before-label">Antes</span>
+                            <span class="before-after-label after-label">Después</span>
+                            <div class="before-after-divider" data-divider></div>
+                            <div class="before-after-handle" data-handle aria-hidden="true">
+                                <i class="fa-solid fa-left-right"></i>
+                            </div>
+                            <div class="before-after-nav" data-nav>
+                                <button class="before-after-nav-btn" data-img-btn="0" aria-label="Imagen 1">1</button>
+                                <button class="before-after-nav-btn" data-img-btn="1" aria-label="Imagen 2">2</button>
+                                <button class="before-after-nav-btn" data-img-btn="2" aria-label="Imagen 3">3</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Comparador 3: Recuperación Capilar -->
+                    <div>
+                        <p class="text-center text-[10px] text-cyan-500 uppercase tracking-widest font-bold mb-4">Recuperación Capilar</p>
+                        <div class="before-after-wrapper" data-before-after tabindex="0"
+                             aria-label="Comparador Recuperación Capilar antes y después"
+                             aria-valuemin="0" aria-valuemax="100" aria-valuenow="50"
+                             data-images='[
+                               {"before": "img/imagendelocal.png", "after": "img/banner.jpg"},
+                               {"before": "img/banner.jpg", "after": "img/imagendelocal.png"},
+                               {"before": "img/imagendelocal.png", "after": "img/banner.jpg"}
+                             ]'>
+                            <div class="before-after-base">
+                                <img src="img/banner.jpg" alt="Cabello recuperado" loading="lazy" decoding="async">
+                            </div>
+                            <div class="before-after-overlay" data-overlay>
+                                <img src="img/imagendelocal.png" alt="Cabello antes" loading="lazy" decoding="async">
+                            </div>
+                            <span class="before-after-label before-label">Antes</span>
+                            <span class="before-after-label after-label">Después</span>
+                            <div class="before-after-divider" data-divider></div>
+                            <div class="before-after-handle" data-handle aria-hidden="true">
+                                <i class="fa-solid fa-left-right"></i>
+                            </div>
+                            <div class="before-after-nav" data-nav>
+                                <button class="before-after-nav-btn" data-img-btn="0" aria-label="Imagen 1">1</button>
+                                <button class="before-after-nav-btn" data-img-btn="1" aria-label="Imagen 2">2</button>
+                                <button class="before-after-nav-btn" data-img-btn="2" aria-label="Imagen 3">3</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="text-center mt-14">
+                    <p class="text-gray-600 text-[10px] tracking-[0.3em] uppercase mb-8">Deslizá horizontalmente para comparar · Compatible con touch</p>
+                    <a href="agendar turno.html" class="inline-block ds-gradient-btn px-10 py-4">Quiero mi transformación</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Sección RESEÑAS -->
+        <section id="reviews" class="py-32 section-alt">
+            <div class="max-w-7xl mx-auto px-10">
+                <div class="section-header">
+                    <div class="flex flex-col md:flex-row items-center justify-center gap-4 mb-6 text-center">
+                        <p class="text-zinc-400 text-sm">Reseñas reales de clientes en Google</p>
+                        <a href="https://www.google.com/search?q=Paula+Pintos+Hair+Studio+rese%C3%B1as" target="_blank" rel="noopener noreferrer" class="border border-white/10 rounded-xl px-4 py-2 text-white text-sm hover:scale-[1.02] transition-all duration-300">
+                            Ver todo en Google
+                        </a>
+                    </div>
+                    <h2 class="ds-h2-section mb-16 text-center">Experiencias <span class="ds-gradient-text">Reales</span></h2>
+                </div>
+                <div class="gallery-nav-container media-showcase">
+                    <button class="gallery-nav-btn" id="reviews-prev" aria-label="Anterior">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <div class="gallery-wrapper">
+                        <div class="reviews-mobile-track" id="reviews-track" aria-live="polite"></div>
+                        </div>
+                    <button class="gallery-nav-btn" id="reviews-next" aria-label="Siguiente">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="py-20 px-10 border-t border-white/5 bg-black">
+            <div class="max-w-7xl mx-auto grid md:grid-cols-3 gap-16 text-center md:text-left">
+                <div>
+                    <h4 class="font-luxury text-3xl mb-6">
+                    <img src="img/isologo.png" alt="Paula Pintos" class="h-28 inline-block">
+                </h4>
+                    <p class="text-xs text-gray-500 leading-loose uppercase tracking-widest">
+                        Elevando el arte del color capilar a una experiencia premium y personalizada.
+                    </p>
+                </div>
+                <div>
+                    <!-- <h5 class="text-cyan-500 font-bold uppercase text-[10px] tracking-widest mb-6">Información de Pago</h5>
+                    <p class="text-sm text-gray-400 mb-2 italic">Contacto</p>
+                    <p class="text-xl font-black text-white">recervar</p>
+                    <p class="text-[10px] text-gray-600 mt-4 uppercase">Enviar comprobante vía WhatsApp</p>-->
+                </div>
+                <div>
+                    <h5 class="text-cyan-500 font-bold uppercase text-[10px] tracking-widest mb-6">Ubicación & Contacto</h5>
+                    <p class="text-sm text-gray-400 mb-2">San Martín, Pcia de Ba As</p>
+                    <p class="text-sm text-gray-400">PaulaPintosHair@gmail.com</p>
+                    <div class="flex justify-center md:justify-start gap-4 mt-6">
+                        <a href="#" class="text-xl opacity-40 hover:opacity-100 transition"><i class="fab fa-instagram"></i></a>
+                        <a href="#" class="text-xl opacity-40 hover:opacity-100 transition"><i class="fab fa-facebook"></i></a>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-20 pt-10 border-t border-white/5 text-center text-[9px] text-gray-600 uppercase tracking-[0.5em]">
+                © 2024 Paula Pintos Studio | Todos los derechos reservados.
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+        }
+
+        const forcePageTop = () => {
+            if (!window.location.hash) {
+                window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+            }
+        };
+
+        forcePageTop();
+        window.addEventListener('pageshow', forcePageTop);
+        window.addEventListener('load', forcePageTop);
+
+        gsap.registerPlugin(ScrollTrigger, TextPlugin);
+
+        // Menú Hamburguesa
+        const burgerBtn = document.getElementById('burger-menu');
+        const mobileMenu = document.getElementById('mobile-menu');
+        const closeMobileMenuBtn = document.getElementById('mobile-menu-close');
+        const mobileMenuLinks = mobileMenu ? mobileMenu.querySelectorAll('a') : [];
+
+        const setMenuOpen = (isOpen) => {
+            if (!mobileMenu) return;
+            mobileMenu.classList.toggle('active', isOpen);
+            burgerBtn?.classList.toggle('is-open', isOpen);
+            if (isOpen && burgerBtn) {
+                burgerBtn.classList.remove('menu-pop');
+                void burgerBtn.offsetWidth;
+                burgerBtn.classList.add('menu-pop');
+            }
+            document.body.style.overflow = isOpen ? 'hidden' : 'auto';
+        };
+
+        burgerBtn?.addEventListener('click', () => {
+            setMenuOpen(!mobileMenu.classList.contains('active'));
+        });
+
+        closeMobileMenuBtn?.addEventListener('click', () => setMenuOpen(false));
+        mobileMenuLinks.forEach((link) => {
+            link.addEventListener('click', () => setMenuOpen(false));
+        });
+
+        mobileMenu?.addEventListener('click', (event) => {
+            if (event.target === mobileMenu) setMenuOpen(false);
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && mobileMenu?.classList.contains('active')) {
+                setMenuOpen(false);
+            }
+        });
+
+        // Globo WhatsApp: minimizar/restaurar
+        (function initWhatsAppBubble() {
+            const waFloat = document.getElementById('wa-float');
+            const waMinToggle = document.getElementById('wa-min-toggle');
+
+            if (!waFloat || !waMinToggle) return;
+
+            waMinToggle.addEventListener('click', () => {
+                const isMinimized = waFloat.classList.toggle('is-minimized');
+                waMinToggle.textContent = isMinimized ? '+' : '−';
+                waMinToggle.setAttribute(
+                    'aria-label',
+                    isMinimized ? 'Mostrar globo de WhatsApp' : 'Minimizar globo de WhatsApp'
+                );
+            });
+        })();
+
+        const reviews = [
+            {
+                name: 'Ariana',
+                rating: 5,
+                text: 'Me encantó, es una profesional Paula, es muy detallista, muy buena atención al cliente y sobre todo es un amor.',
+                date: 'Hace 2 semanas'
+            },
+            {
+                name: 'MAIA',
+                rating: 5,
+                text: 'Es una gran profesional, sus manos son mágicas, y siempre está pendiente de cada detalle, te escucha en lo que queres y te queda más lindo de lo imaginaste. Esa es mi experiencia con Paula, ya sea en corte, color o alisado. También le ha cortado el pelo a mi hijo desde los 4 años hasta ahora que tiene 7, resaltando las mejores rasgos en cada corte. La recomiendo 100%.',
+                date: 'Hace 1 mes'
+            },
+            {
+                name: 'melany',
+                rating: 5,
+                text: 'Excelente profesional Pau. Atención personalizada al 100%, súper detallista, se capacita constantemente. Síganla en Instagram para ver todos sus laburos.',
+                date: 'Hace 3 semanas'
+            },
+            {
+                name: 'Celeste',
+                rating: 5,
+                text: 'Pau es macanudísima, además se asegura de entender bien lo que buscás y es generosa con los consejos y tips. Una genia, sin dudas voy a volver.',
+                date: 'Hace 1 mes'
+            }
+        ];
+
+        (function initReviewsSection() {
+            const reviewsTrack = document.getElementById('reviews-track');
+            const prevBtn = document.getElementById('reviews-prev');
+            const nextBtn = document.getElementById('reviews-next');
+
+            if (!reviewsTrack || !prevBtn || !nextBtn || !reviews.length) return;
+
+            let reviewIndex = 0;
+            let reviewInterval = null;
+            const visibleCount = 2;
+
+            const getVisibleReviews = () => {
+                return Array.from({ length: visibleCount }, (_, offset) => {
+                    return reviews[(reviewIndex + offset) % reviews.length];
+                });
+            };
+
+            const renderReviews = () => {
+                const visibleReviews = getVisibleReviews();
+                reviewsTrack.innerHTML = visibleReviews.map((review) => {
+                    const stars = '⭐'.repeat(review.rating);
+                    return `
+                        <article class="reviews-mobile-item review-card review-card-enter hover:scale-[1.02] transition-all duration-300 border border-white/10 rounded-xl">
+                            <div class="text-cyan-400 mb-4 text-base tracking-[0.18em]">${stars}</div>
+                            <p class="review-quote">"${review.text}"</p>
+                            <div class="mt-6 flex items-center justify-between gap-3 w-full not-italic">
+                                <p class="font-bold text-white text-sm">${review.name}</p>
+                                <span class="text-zinc-500 text-xs uppercase tracking-[0.18em]">${review.date}</span>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+            };
+
+            const goToReviewIndex = (nextIndex) => {
+                reviewsTrack.classList.add('is-transitioning');
+                window.setTimeout(() => {
+                    reviewIndex = (nextIndex + reviews.length) % reviews.length;
+                    renderReviews();
+                    reviewsTrack.classList.remove('is-transitioning');
+                }, 160);
+            };
+
+            const startReviewsAutoplay = () => {
+                if (reviewInterval) return;
+                reviewInterval = window.setInterval(() => {
+                    goToReviewIndex(reviewIndex + 1);
+                }, 4000);
+            };
+
+            const stopReviewsAutoplay = () => {
+                if (!reviewInterval) return;
+                window.clearInterval(reviewInterval);
+                reviewInterval = null;
+            };
+
+            prevBtn.addEventListener('click', () => goToReviewIndex(reviewIndex - 1));
+            nextBtn.addEventListener('click', () => goToReviewIndex(reviewIndex + 1));
+            reviewsTrack.addEventListener('mouseenter', stopReviewsAutoplay);
+            reviewsTrack.addEventListener('mouseleave', startReviewsAutoplay);
+            reviewsTrack.addEventListener('touchstart', stopReviewsAutoplay, { passive: true });
+            reviewsTrack.addEventListener('touchend', startReviewsAutoplay, { passive: true });
+
+            renderReviews();
+            startReviewsAutoplay();
+        })();
+
+        // ── Loader ──────────────────────────────────────────
+        const tl = gsap.timeline();
+        tl.from("#loader-logo", { scale: 0.9, opacity: 0, duration: 0.8 })
+          .to("#progress",      { width: "100%", duration: 1.5 }, "-=0.3")
+          .to("#loader-logo",   { scale: 1.1, duration: 0.4 }, "-=0.5")
+          .to("#loader",        { opacity: 0, pointerEvents: "none", duration: 0.5 }, "-=0.2")
+          .call(() => {
+              gsap.timeline()
+                                .to("#hero-title",  { opacity: 1, y: -10, duration: 1 })
+                .to("#hero-sub",    { opacity: 1, y: -10 }, "-=0.2")
+                .to("#hero-btns",   { opacity: 1, y:  10 }, "-=0.5");
+          }, null);
+
+        // ── Parallax hero ────────────────────────────────────
+        gsap.to("#hero-content-wrapper", {
+            opacity: 0, y: -100,
+            scrollTrigger: { trigger: "body", start: "top top", end: "50vh", scrub: true }
+        });
+        gsap.to("#bg-gif", {
+            y: "15%",
+            scrollTrigger: { trigger: "body", start: "top top", end: "bottom bottom", scrub: true }
+        });
+
+        // ── Servicios cards ──────────────────────────────────
+        gsap.from("#servicios .review-card, #servicios .service-gallery-card", {
+            y: 28, duration: 0.9, stagger: 0.14, ease: "power2.out",
+            scrollTrigger: { trigger: "#servicios", start: "top 78%", once: true }
+        });
+
+        // ── Por qué Elegirnos ────────────────────────────────
+        gsap.from("#por-que-elegirnos .benefit-item", {
+            y: 28, opacity: 0, duration: 0.9, stagger: 0.2, ease: "power2.out",
+            scrollTrigger: { trigger: "#por-que-elegirnos", start: "top 78%", once: true }
+        });
+
+        // ── Proceso: pasos animados individualmente ──────────
+        gsap.utils.toArray(".timeline-step").forEach((step, i) => {
+            gsap.fromTo(step,
+                { y: 40, opacity: 0 },
+                {
+                    y: 0, opacity: 1, duration: 0.75, ease: "power2.out",
+                    delay: i * 0.18,
+                    scrollTrigger: { trigger: "#proceso", start: "top 76%", once: true }
+                }
+            );
+        });
+        // Conectores: aparecen como líneas que se expanden
+        gsap.utils.toArray(".timeline-connector").forEach((c, i) => {
+            gsap.fromTo(c,
+                { scaleX: 0, transformOrigin: "left center" },
+                {
+                    scaleX: 1, duration: 0.5, ease: "power2.out",
+                    delay: (i + 1) * 0.22,
+                    scrollTrigger: { trigger: "#proceso", start: "top 76%", once: true }
+                }
+            );
+        });
+
+        // ── Reseñas cards ────────────────────────────────────
+        gsap.from("#reviews .review-card", {
+            y: 28, duration: 0.9, stagger: 0.14, ease: "power2.out",
+            scrollTrigger: { trigger: "#reviews", start: "top 78%", once: true }
+        });
+
+        // ── Comparadores Before / After (multi-instancia con 3 imágenes) ────
+        document.querySelectorAll("[data-before-after]").forEach((ba) => {
+            const overlay = ba.querySelector("[data-overlay]");
+            const divider = ba.querySelector("[data-divider]");
+            const handle  = ba.querySelector("[data-handle]");
+            const baseImg = ba.querySelector(".before-after-base img");
+            const overlayImg = ba.querySelector(".before-after-overlay img");
+            const navBtns = ba.querySelectorAll("[data-img-btn]");
+            
+            const imagesData = JSON.parse(ba.getAttribute("data-images") || "[]");
+            let currentImageIndex = 0;
+
+            // Cargar imagen inicial
+            const loadImages = (index) => {
+                if (imagesData[index]) {
+                    baseImg.src = imagesData[index].after;
+                    overlayImg.src = imagesData[index].before;
+                }
+                
+                // Actualizar botones activos
+                navBtns.forEach((btn, i) => {
+                    btn.style.background = i === index ? "rgba(6,182,212,0.6)" : "rgba(5,5,5,0.7)";
+                    btn.style.borderColor = i === index ? "var(--cyan)" : "rgba(255,255,255,0.3)";
+                    btn.style.color = i === index ? "var(--cyan)" : "white";
+                });
+            };
+
+            // Botones de navegación de imágenes
+            navBtns.forEach((btn, index) => {
+                btn.addEventListener("click", () => {
+                    currentImageIndex = index;
+                    loadImages(index);
+                    setPos(ba.getBoundingClientRect().left + ba.getBoundingClientRect().width / 2);
+                });
+            });
+
+            const setPos = (clientX) => {
+                const rect = ba.getBoundingClientRect();
+                const pct  = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1) * 100;
+                overlay.style.width = `${pct}%`;
+                divider.style.left  = `${pct}%`;
+                handle.style.left   = `${pct}%`;
+                ba.setAttribute("aria-valuenow", Math.round(pct));
+            };
+
+            let drag = false;
+            ba.addEventListener("pointerdown",   (e) => { drag = true; ba.setPointerCapture(e.pointerId); setPos(e.clientX); });
+            ba.addEventListener("pointermove",   (e) => { if (drag) setPos(e.clientX); });
+            ba.addEventListener("pointerup",     ()  => { drag = false; });
+            ba.addEventListener("pointercancel", ()  => { drag = false; });
+
+            // Navegación por teclado (accesibilidad)
+            ba.addEventListener("keydown", (e) => {
+                const cur  = Number(ba.getAttribute("aria-valuenow") || 50);
+                const rect = ba.getBoundingClientRect();
+                if (e.key === "ArrowLeft")  { e.preventDefault(); setPos(rect.left + ((cur - 5) / 100) * rect.width); }
+                if (e.key === "ArrowRight") { e.preventDefault(); setPos(rect.left + ((cur + 5) / 100) * rect.width); }
+            });
+
+            // Cargar primera imagen
+            loadImages(0);
+        });
+
+        // ── Galería desplegable (Trabajos Realizados) ────
+        document.querySelectorAll("[data-gallery-item]").forEach((item) => {
+            const btn = item.querySelector("[data-expand-btn]");
+            const details = item.querySelector("[data-expand-details]");
+
+            btn.addEventListener("click", () => {
+                details.classList.toggle("active");
+                btn.style.transform = details.classList.contains("active") ? "rotate(180deg)" : "rotate(0deg)";
+            });
+        });
+
+        // ── Navegación con botones para galerías ──────────────────────
+        (function initGalleryNavigation() {
+            const setupNavigation = (trackSelector, prevBtnId, nextBtnId) => {
+                const track = document.querySelector(trackSelector);
+                const prevBtn = document.getElementById(prevBtnId);
+                const nextBtn = document.getElementById(nextBtnId);
+
+                if (!track || !prevBtn || !nextBtn) return;
+
+                const getItems = () => {
+                    if (trackSelector === '.trabajos-mobile-track') {
+                        return Array.from(track.querySelectorAll('.service-gallery-card'));
+                    } else {
+                        return Array.from(track.querySelectorAll('.reviews-mobile-item'));
+                    }
+                };
+
+                const scrollToItem = (direction) => {
+                    const items = getItems();
+                    if (!items.length) return;
+
+                    const trackRect = track.getBoundingClientRect();
+                    let closest = items[0];
+                    let closestDistance = Math.abs(items[0].getBoundingClientRect().left - trackRect.left);
+
+                    items.forEach((item) => {
+                        const itemRect = item.getBoundingClientRect();
+                        const distance = Math.abs(itemRect.left - trackRect.left);
+                        if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closest = item;
+                        }
+                    });
+
+                    const currentIndex = items.indexOf(closest);
+                    const nextIndex = direction === 'next' 
+                        ? (currentIndex + 1) % items.length 
+                        : (currentIndex - 1 + items.length) % items.length;
+
+                    const nextItem = items[nextIndex];
+                    const targetLeft = nextItem.offsetLeft - track.offsetLeft;
+                    track.scrollTo({ left: targetLeft, behavior: 'smooth' });
+                };
+
+                prevBtn.addEventListener('click', () => scrollToItem('prev'));
+                nextBtn.addEventListener('click', () => scrollToItem('next'));
+            };
+
+            setupNavigation('.trabajos-mobile-track', 'trabajos-prev', 'trabajos-next');
+        })();
+
+        // ── Notebook section menu: sticky + scroll spy ──────────────────
+        (function initNotebookSectionMenu() {
+            const sectionMenu = document.querySelector('.notebook-section-menu');
+            if (!sectionMenu) return;
+
+            const chips = Array.from(sectionMenu.querySelectorAll('a[href^="#"]'));
+            if (!chips.length) return;
+
+            const linkMap = chips
+                .map((chip) => {
+                    const hash = chip.getAttribute('href');
+                    const section = hash ? document.querySelector(hash) : null;
+                    return section ? { chip, section, hash } : null;
+                })
+                .filter(Boolean);
+
+            if (!linkMap.length) return;
+
+            const setActiveChip = (activeHash) => {
+                chips.forEach((chip) => {
+                    const isActive = chip.getAttribute('href') === activeHash;
+                    chip.classList.toggle('is-active', isActive);
+                    if (isActive) {
+                        chip.setAttribute('aria-current', 'location');
+                    } else {
+                        chip.removeAttribute('aria-current');
+                    }
+                });
+            };
+
+            const updateStickyState = () => {
+                sectionMenu.classList.toggle('is-scrolled', window.scrollY > 28);
+            };
+
+            updateStickyState();
+            window.addEventListener('scroll', updateStickyState, { passive: true });
+
+            const observer = new IntersectionObserver(
+                (entries) => {
+                    const visibleEntries = entries
+                        .filter((entry) => entry.isIntersecting)
+                        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+
+                    if (!visibleEntries.length) return;
+                    const topMatch = visibleEntries[0];
+                    setActiveChip(`#${topMatch.target.id}`);
+                },
+                {
+                    root: null,
+                    rootMargin: '-32% 0px -52% 0px',
+                    threshold: [0.2, 0.35, 0.5, 0.7]
+                }
+            );
+
+            linkMap.forEach(({ section }) => observer.observe(section));
+
+            chips.forEach((chip) => {
+                chip.addEventListener('click', (event) => {
+                    const targetHash = chip.getAttribute('href');
+                    if (!targetHash) return;
+
+                    const targetSection = document.querySelector(targetHash);
+                    if (!targetSection) return;
+
+                    event.preventDefault();
+
+                    const headerOffset = 156;
+                    const targetTop = targetSection.getBoundingClientRect().top + window.scrollY - headerOffset;
+                    window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' });
+
+                    history.replaceState(null, '', targetHash);
+                    setActiveChip(targetHash);
+                });
+            });
+
+            setActiveChip(linkMap[0].hash);
+        })();
+    </script>
+    
+</body>
+</html>

@@ -1,0 +1,173 @@
+﻿@import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-main: #050505;
+  --text-main: #ffffff;
+  --text-secondary: #a1a1aa;
+  --accent-primary: #8b5cf6;
+  --accent-secondary: #06b6d4;
+
+  --font-base: 'Poppins', sans-serif;
+  --font-heading: 'Poppins', sans-serif;
+  --font-accent: 'Great Vibes', cursive;
+}
+
+html,
+body {
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-base);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  color: var(--text-main);
+}
+
+.text-main {
+  color: var(--text-main);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.font-accent {
+  font-family: var(--font-accent);
+}
+
+/* H1 Hero: mobile text-5xl, desktop text-8xl, medium, tracking-tight, leading-[1.1] */
+.ds-h1-hero {
+  font-size: 3rem;
+  line-height: 1.1;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  font-family: var(--font-heading);
+}
+
+@media (min-width: 1024px) {
+  .ds-h1-hero {
+    font-size: 6rem;
+  }
+}
+
+/* H2 Sections: text-4xl to text-6xl with italic accents */
+.ds-h2-section {
+  font-size: 2.25rem;
+  line-height: 1.1;
+  font-family: var(--font-heading);
+  font-weight: 500;
+}
+
+@media (min-width: 768px) {
+  .ds-h2-section {
+    font-size: 3.25rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .ds-h2-section {
+    font-size: 3.75rem;
+  }
+}
+
+.ds-h2-accent {
+  font-style: italic;
+  color: var(--accent-primary);
+}
+
+/* Body text: text-sm / text-base, light, relaxed */
+.ds-body {
+  font-size: 0.875rem;
+  line-height: 1.625;
+  font-weight: 300;
+  color: var(--text-secondary);
+}
+
+@media (min-width: 768px) {
+  .ds-body {
+    font-size: 1rem;
+  }
+}
+
+/* Micro text */
+.ds-micro {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-weight: 700;
+}
+
+/* Subtle borders */
+.border-soft {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.border-soft-strong {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Luxury gradient accents */
+.ds-gradient-text {
+  background: linear-gradient(120deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.ds-gradient-btn {
+  background: linear-gradient(120deg, var(--accent-primary), var(--accent-secondary));
+  color: #040404;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
+}
+
+.ds-gradient-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(6, 182, 212, 0.22);
+  filter: brightness(1.05);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Hero sample block */
+.ds-hero {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 7rem 1.25rem 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.ds-hero::before {
+  content: '';
+  position: absolute;
+  inset: -20% -10% auto -10%;
+  height: 60%;
+  background: radial-gradient(circle at 30% 30%, rgba(139, 92, 246, 0.22), transparent 55%),
+              radial-gradient(circle at 70% 45%, rgba(6, 182, 212, 0.2), transparent 55%);
+  pointer-events: none;
+}
+
+.ds-hero-inner {
+  position: relative;
+  z-index: 1;
+  width: min(980px, 100%);
+  text-align: center;
+}

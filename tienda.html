@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop Premium | Paula Pintos</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+
+    <style>
+        :root { --cyan: #06b6d4; --dark: #050505; }
+        body { background-color: var(--dark); color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+        .font-luxury { font-family: 'Playfair Display', serif; }
+        
+        /* Fondo con GIF */
+        #bg-gif { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; filter: brightness(0.3) contrast(1.2); }
+        .gradient-overlay { position: fixed; inset: 0; background: linear-gradient(to bottom, rgba(5,5,5,0.2), rgba(5,5,5,0.9)); z-index: -1; }
+
+        /* Glassmorphism */
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
+        
+        /* Carrito Modal */
+        #cart-modal { position: fixed; top: 0; right: -100%; width: 100%; max-width: 400px; height: 100vh; background: rgba(5,5,5,0.98); z-index: 200; transition: 0.5s cubic-bezier(0.77, 0, 0.175, 1); border-left: 1px solid rgba(255,255,255,0.1); }
+        #cart-modal.active { right: 0; }
+
+        .product-card { transition: 0.3s; }
+        .product-card:hover { transform: translateY(-5px); border-color: var(--cyan); }
+        
+        .badge-discount { background: #ef4444; color: white; font-size: 10px; font-weight: 800; padding: 4px 8px; border-radius: 6px; position: absolute; top: 15px; left: 15px; }
+        
+        .cart-count { position: absolute; top: -5px; right: -5px; background: var(--cyan); color: black; font-size: 10px; font-weight: 900; width: 18px; height: 18px; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+
+        /* Mobile Menu */
+        #mobile-menu {
+            position: fixed; top: 0; right: -100%; width: 100%; height: 100vh;
+            background: rgba(5,5,5,0.98); z-index: 150; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: 0.5s cubic-bezier(0.77,0,0.175,1);
+        }
+        #mobile-menu.active { right: 0; }
+
+        .burger-btn {
+            transition: transform 0.25s ease, background 0.25s ease, border-color 0.25s ease;
+        }
+
+        @keyframes menuPop {
+            0% { transform: scale(1); }
+            45% { transform: scale(1.14); }
+            100% { transform: scale(1); }
+        }
+
+        .burger-btn.menu-pop {
+            animation: menuPop 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .burger-btn span {
+            display: block;
+            transition: transform 0.25s ease, opacity 0.2s ease;
+            transform-origin: center;
+        }
+
+        .burger-btn.is-open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        .burger-btn.is-open span:nth-child(2) { opacity: 0; }
+        .burger-btn.is-open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        .mobile-menu-close {
+            position: absolute;
+            top: 1.2rem;
+            right: 1rem;
+            width: 2.4rem;
+            height: 2.4rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.88) rotate(-60deg);
+            transition: transform 0.25s ease, opacity 0.25s ease, background 0.25s ease;
+        }
+
+        #mobile-menu.active .mobile-menu-close {
+            opacity: 1;
+            pointer-events: auto;
+            transform: scale(1) rotate(0deg);
+        }
+
+        .mobile-menu-close:hover {
+            background: rgba(255,255,255,0.16);
+            transform: scale(1.08) rotate(90deg);
+        }
+
+        @media (max-width: 767px) {
+            .burger-btn {
+                position: fixed;
+                top: 1.1rem;
+                right: 1rem;
+                z-index: 220;
+                background: rgba(5,5,5,0.45);
+                border: 1px solid rgba(255,255,255,0.25);
+                border-radius: 0.65rem;
+                padding: 0.45rem;
+                backdrop-filter: blur(8px);
+            }
+        }
+    </style>
+</head>
+
+<body class="pt-24 pb-20">
+
+    <img id="bg-gif" src="video/gif.gif" alt="background">
+    <div class="gradient-overlay"></div>
+
+    <!-- Navegación (Igual a Index) -->
+<nav class="fixed top-0 w-full z-[100] p-6 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/5">
+        <a href="admin.html" class="text-[10px] uppercase tracking-widest font-bold opacity-50 hover:opacity-100 transition border border-white/20 px-4 py-2 rounded-full hidden sm:inline-block">
+            <i class="fas fa-lock mr-2"></i> Staff
+        </a>
+        
+         <a href="index.html" class="absolute left-1/2 -translate-x-1/2">
+            <img src="img/logo web.png" alt="Paula Pintos" class="h-32">
+        </a>
+        <div class="flex items-center gap-4">
+            <!-- Botón Carrito -->
+            <button onclick="toggleCart()" class="relative glass p-3 rounded-full hover:bg-white/5 transition">
+                <i class="fas fa-shopping-bag"></i>
+                <span id="cart-counter" class="cart-count">0</span>
+            </button>
+            <a href="agendar turno.html" class="hidden sm:block bg-white text-black px-6 py-2 rounded-full text-[10px] font-black uppercase hover:bg-cyan-500 transition">Turnos</a>
+            <div class="burger-btn md:hidden cursor-pointer flex flex-col gap-1.5" id="burger-menu">
+                <span class="w-6 h-0.5 bg-white"></span>
+                <span class="w-6 h-0.5 bg-white"></span>
+                <span class="w-6 h-0.5 bg-white"></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Menú Mobile -->
+    <div id="mobile-menu">
+        <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Cerrar menú">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div class="flex flex-col gap-8 text-center">
+            <a href="index.html" class="mobile-link border border-white text-white px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-white/10 transition">Servicios</a>
+            <a href="agendar turno.html" class="mobile-link bg-cyan-500 text-black px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-cyan-400 transition">Reservar Ahora</a>
+            <a href="tienda.html" class="mobile-link border border-white text-white px-10 py-4 rounded-full font-bold uppercase text-sm hover:bg-white/10 transition">Tienda</a>
+            <a href="index.html" class="text-white/50 text-xs hover:text-white transition underline underline-offset-4">ir a inicio</a>
+            <a href="admin.html" class="mobile-link text-xs opacity-40 uppercase tracking-widest mt-4 italic">Acceso Personal</a>
+        </div>
+    </div>
+
+    <!-- Header Sección -->
+    <header class="text-center py-16 px-4">
+        <h1 class="text-5xl font-luxury mb-4">Mi <span class="text-cyan-500 italic">Tienda</span></h1>
+        <p class="text-[10px] uppercase tracking-[0.5em] text-gray-500">Productos profesionales para tu cabello</p>
+    </header>
+
+    <!-- Grid de Productos -->
+    <main class="max-w-7xl mx-auto px-6 grid grid-cols-2 lg:grid-cols-4 gap-8" id="product-grid">
+        <!-- Los productos se cargan con JS -->
+    </main>
+
+    <!-- Modal Carrito -->
+    <aside id="cart-modal" class="p-8 flex flex-col">
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-2xl font-luxury">Tu <span class="text-cyan-500">Bolsa</span></h2>
+            <button onclick="toggleCart()" class="text-2xl">&times;</button>
+        </div>
+        
+        <div id="cart-items" class="flex-grow overflow-y-auto space-y-6">
+            <!-- Items del carrito -->
+        </div>
+
+        <div class="mt-8 pt-6 border-t border-white/10">
+            <div class="flex justify-between items-center mb-6">
+                <span class="uppercase tracking-widest text-xs opacity-50">Total</span>
+                <span id="cart-total" class="text-2xl font-bold text-cyan-500">$0</span>
+            </div>
+            <button onclick="checkoutWhatsApp()" class="w-full bg-cyan-500 text-black py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white transition">Confirmar Pedido</button>
+        </div>
+    </aside>
+
+    <footer class="mt-32 py-10 text-center border-t border-white/5 opacity-40">
+        <p class="text-[9px] tracking-[0.5em] uppercase">© 2024 Paula Pintos Hair Care Shop</p>
+    </footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+}
+
+const forcePageTop = () => {
+    if (!window.location.hash) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+};
+
+forcePageTop();
+window.addEventListener('pageshow', forcePageTop);
+window.addEventListener('load', forcePageTop);
+
+const supabaseClient = supabase.createClient(
+  "https://svhyzqryvjuodmpybzmq.supabase.co",
+  "sb_publishable_7-VGuO-3Rb1GIex87SQzjw_bsBy3mxX"
+);
+
+let cart = [];
+
+/* ================= PRODUCTS ================= */
+
+async function renderProducts() {
+
+    const { data, error } = await supabaseClient
+        .from('productos')
+        .select('*')
+        .eq('activo', true);
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    const grid = document.getElementById('product-grid');
+    grid.innerHTML = "";
+
+    data.forEach(p => {
+
+        const finalPrice = p.precio - (p.precio * (p.descuento / 100));
+        const imagenUrl = p.imagen ? `https://svhyzqryvjuodmpybzmq.supabase.co/storage/v1/object/public/productos/${p.imagen}` : 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=500';
+
+        grid.innerHTML += `
+            <div class="product-card glass rounded-[2.5rem] overflow-hidden relative p-4 flex flex-col">
+                ${p.descuento > 0 ? `<span class="badge-discount">-${p.descuento}% OFF</span>` : ''}
+
+                <img src="${imagenUrl}"
+                     class="w-full h-64 object-cover rounded-[1.8rem] mb-6 shadow-xl" alt="${p.nombre}">
+
+                <div class="px-2 pb-2 flex-grow">
+                    <h3 class="font-bold text-xl mb-2">${p.nombre}</h3>
+
+                    <span class="text-2xl font-black text-cyan-500">
+                        $${finalPrice.toLocaleString()}
+                    </span>
+
+                    <p class="text-xs opacity-50 mt-2">
+                        Stock disponible: ${p.stock}
+                    </p>
+                </div>
+
+                ${p.stock > 0 
+                    ? `<button onclick="addToCart(${p.id}, ${finalPrice}, '${p.nombre.replace(/'/g, "")}')"
+                        class="bg-white text-black py-4 rounded-2xl font-bold uppercase text-[10px] tracking-widest hover:bg-cyan-500 transition">
+                        Agregar al Carrito
+                       </button>`
+                    : `<button disabled
+                        class="bg-gray-500 text-white py-4 rounded-2xl font-bold uppercase text-[10px] tracking-widest cursor-not-allowed">
+                        Sin Stock
+                       </button>`
+                }
+            </div>
+        `;
+    });
+}
+
+/* ================= CART ================= */
+
+function addToCart(id, precio, nombre) {
+
+    const existente = cart.find(p => p.id === id);
+
+    if (existente) {
+        existente.cantidad++;
+    } else {
+        cart.push({ id, nombre, precio, cantidad: 1 });
+    }
+
+    updateCartUI();
+}
+
+function changeQuantity(id, delta) {
+
+    const item = cart.find(p => p.id === id);
+    if (!item) return;
+
+    item.cantidad += delta;
+
+    if (item.cantidad <= 0) {
+        cart = cart.filter(p => p.id !== id);
+    }
+
+    updateCartUI();
+}
+
+function updateCartUI() {
+
+    const counter = document.getElementById('cart-counter');
+    const totalDisplay = document.getElementById('cart-total');
+    const itemsContainer = document.getElementById('cart-items');
+
+    let total = 0;
+    itemsContainer.innerHTML = "";
+
+    cart.forEach(item => {
+
+        total += item.precio * item.cantidad;
+
+        itemsContainer.innerHTML += `
+            <div class="border-b border-white/10 pb-4 space-y-3">
+                <div class="flex justify-between">
+                    <p class="font-bold">${item.nombre}</p>
+                    <p class="text-cyan-500 font-bold">
+                        $${(item.precio * item.cantidad).toLocaleString()}
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button onclick="changeQuantity(${item.id}, -1)"
+                        class="glass px-3 py-1 rounded">−</button>
+
+                    <span class="font-bold">${item.cantidad}</span>
+
+                    <button onclick="changeQuantity(${item.id}, 1)"
+                        class="glass px-3 py-1 rounded">+</button>
+                </div>
+            </div>
+        `;
+    });
+
+    counter.innerText = cart.reduce((acc, item) => acc + item.cantidad, 0);
+    totalDisplay.innerText = `$${total.toLocaleString()}`;
+}
+
+function toggleCart() {
+    document.getElementById("cart-modal").classList.toggle("active");
+}
+
+/* ================= CHECKOUT ================= */
+
+async function checkoutWhatsApp() {
+
+    if (cart.length === 0) {
+        alert("El carrito está vacío");
+        return;
+    }
+
+    const nombreCliente = prompt("Ingresá tu nombre:");
+    const telefonoCliente = prompt("Ingresá tu número de celular:");
+
+    if (!nombreCliente || !telefonoCliente) {
+        alert("Debes completar nombre y celular");
+        return;
+    }
+
+    let total = 0;
+
+    /* VERIFICAR STOCK */
+    for (const item of cart) {
+
+        const { data } = await supabaseClient
+            .from('productos')
+            .select('stock')
+            .eq('id', item.id)
+            .single();
+
+        if (data.stock < item.cantidad) {
+            alert(`No hay suficiente stock de ${item.nombre}`);
+            return;
+        }
+    }
+
+    /* DESCONTAR STOCK */
+    for (const item of cart) {
+
+        const { data } = await supabaseClient
+            .from('productos')
+            .select('stock')
+            .eq('id', item.id)
+            .single();
+
+        await supabaseClient
+            .from('productos')
+            .update({ stock: data.stock - item.cantidad })
+            .eq('id', item.id);
+
+        total += item.precio * item.cantidad;
+    }
+
+    /* GUARDAR VENTA */
+    const { error } = await supabaseClient
+        .from('ventas')
+        .insert([
+            {
+                detalle: cart,
+                total: total,
+                cliente_nombre: nombreCliente,
+                cliente_telefono: telefonoCliente,
+                estado: 'pendiente'
+            }
+        ]);
+
+    if (error) {
+        alert("Error al guardar venta");
+        console.error(error);
+        return;
+    }
+
+    /* MENSAJE WHATSAPP */
+    let mensaje = "🛍️ *Pedido Tienda Paula Pintos*\n\n";
+    mensaje += `👤 Cliente: ${nombreCliente}\n`;
+    mensaje += `📱 Tel: ${telefonoCliente}\n\n`;
+
+    cart.forEach(item => {
+        mensaje += `• ${item.nombre} x${item.cantidad} - $${(item.precio * item.cantidad).toLocaleString()}\n`;
+    });
+
+    mensaje += `\n💰 Total: $${total.toLocaleString()}`;
+    mensaje += `\nAlias para abonar: PAULAPINTOS.MP`;
+    mensaje += `\nEnviar comprobante ✨`;
+
+    window.open(`https://wa.me/5491156925501?text=${encodeURIComponent(mensaje)}`, '_blank');
+
+    cart = [];
+    updateCartUI();
+    toggleCart();
+    renderProducts();
+}
+
+renderProducts();
+
+// Menú Hamburguesa
+const burgerBtn = document.getElementById('burger-menu');
+const mobileMenu = document.getElementById('mobile-menu');
+const closeMobileMenuBtn = document.getElementById('mobile-menu-close');
+const mobileMenuLinks = mobileMenu ? mobileMenu.querySelectorAll('a') : [];
+
+const setMenuOpen = (isOpen) => {
+    if (!mobileMenu) return;
+    mobileMenu.classList.toggle('active', isOpen);
+    burgerBtn?.classList.toggle('is-open', isOpen);
+    if (isOpen && burgerBtn) {
+        burgerBtn.classList.remove('menu-pop');
+        void burgerBtn.offsetWidth;
+        burgerBtn.classList.add('menu-pop');
+    }
+    document.body.style.overflow = isOpen ? 'hidden' : 'auto';
+};
+
+burgerBtn?.addEventListener('click', () => {
+    setMenuOpen(!mobileMenu.classList.contains('active'));
+});
+
+closeMobileMenuBtn?.addEventListener('click', () => setMenuOpen(false));
+mobileMenuLinks.forEach((link) => {
+    link.addEventListener('click', () => setMenuOpen(false));
+});
+
+mobileMenu?.addEventListener('click', (event) => {
+    if (event.target === mobileMenu) setMenuOpen(false);
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && mobileMenu?.classList.contains('active')) {
+        setMenuOpen(false);
+    }
+});
+</script>
+</body>
+</html>
